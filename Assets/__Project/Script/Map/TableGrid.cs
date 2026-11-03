@@ -1,13 +1,15 @@
 using UnityEngine;
 
+// Grade visual da mesa. Gera a textura do quadriculado por código e ajusta o Quad.
+// Quando existe um MapBoard, ele chama Configure() e define tamanho e posição da grade.
 [RequireComponent(typeof(MeshRenderer))]
 public class TableGrid : MonoBehaviour
 {
-    [Header("Tamanho")]
+    [Header("Tamanho (o MapBoard sobrescreve no Play)")]
     [SerializeField] int widthInCells = 30;
     [SerializeField] int heightInCells = 30;
     [SerializeField] float cellSize = 1.5f;
-    [SerializeField] Vector2 offset = Vector2.zero;
+    [SerializeField] Vector2 origin = new Vector2(-22.5f, -22.5f); // canto inferior esquerdo (X, Z), em metros
 
     [Header("Aparência")]
     [SerializeField] Color lineColor = new Color(0f, 0f, 0f, 0.5f);
@@ -21,12 +23,8 @@ public class TableGrid : MonoBehaviour
     Texture2D texture;
 
     public float CellSize => cellSize;
-
-    // Canto inferior esquerdo da grade no mundo (x = X, y = Z).
-    Vector2 Origin => offset - new Vector2(widthInCells * cellSize, heightInCells * cellSize) / 2f; // ← faltava
-
-    public Vector2 Min => Origin;
-    public Vector2 Max => Origin + new Vector2(widthInCells, heightInCells) * cellSize;
+    public Vector2 Min => origin;
+    public Vector2 Max => origin + new Vector2(widthInCells, heightInCells) * cellSize;
 
     void Awake()
     {
@@ -47,13 +45,27 @@ public class TableGrid : MonoBehaviour
         if (material != null && texture != null) Apply();
     }
 
+    // Chamado pelo MapBoard sempre que a imagem ou a calibração mudam.
+    public void Configure(Vector2 newOrigin, int width, int height, float newCellSize)
+    {
+        origin = newOrigin;
+        widthInCells = Mathf.Max(1, width);
+        heightInCells = Mathf.Max(1, height);
+        cellSize = Mathf.Max(0.01f, newCellSize);
+        if (material != null) Apply();
+    }
+
     void Apply()
     {
         DrawTexture();
 
+        float width = widthInCells * cellSize;
+        float height = heightInCells * cellSize;
+
         transform.rotation = Quaternion.Euler(90f, 0f, 0f);
-        transform.localScale = new Vector3(widthInCells * cellSize, heightInCells * cellSize, 1f);
-        transform.position = new Vector3(offset.x, 0.01f, offset.y); // ← faltava
+        transform.localScale = new Vector3(width, height, 1f);
+        // O Quad é posicionado pelo centro; a origem é o canto, então soma metade do tamanho.
+        transform.position = new Vector3(origin.x + width / 2f, 0.01f, origin.y + height / 2f);
 
         material.mainTextureScale = new Vector2(widthInCells, heightInCells);
         meshRenderer.enabled = visible;
@@ -81,18 +93,16 @@ public class TableGrid : MonoBehaviour
 
     public Vector2Int WorldToCell(Vector3 world)
     {
-        Vector2 o = Origin;
         return new Vector2Int(
-            Mathf.FloorToInt((world.x - o.x) / cellSize),
-            Mathf.FloorToInt((world.z - o.y) / cellSize));
+            Mathf.FloorToInt((world.x - origin.x) / cellSize),
+            Mathf.FloorToInt((world.z - origin.y) / cellSize));
     }
 
     public Vector3 CellToWorldCenter(Vector2Int cell)
     {
-        Vector2 o = Origin;
         return new Vector3(
-            o.x + (cell.x + 0.5f) * cellSize, 0f,
-            o.y + (cell.y + 0.5f) * cellSize);
+            origin.x + (cell.x + 0.5f) * cellSize, 0f,
+            origin.y + (cell.y + 0.5f) * cellSize);
     }
 
     public bool IsInside(Vector2Int cell) =>
