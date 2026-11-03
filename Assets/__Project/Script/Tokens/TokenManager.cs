@@ -17,6 +17,13 @@ public class TokenManager : MonoBehaviour
     IMovementRule rule;
     TokenView dragged;
     Vector3 grabOffset; // diferença entre o ponto agarrado e o centro do token
+    Vector3 dragStart;  // onde o token estava quando foi pego
+
+    // Informações para outros scripts (texto de distância, câmera).
+    public bool IsDragging => dragged != null;
+    public TokenView Dragged => dragged;
+    public Vector3 DragStart => dragStart;
+    public IMovementRule Rule => rule;
 
     IEnumerator Start()
     {
@@ -43,6 +50,17 @@ public class TokenManager : MonoBehaviour
         return view;
     }
 
+    // Há algum token neste ponto do chão? (a câmera pergunta isso)
+    public bool IsTokenAt(Vector3 worldPoint) => FindTokenAt(worldPoint) != null;
+
+    TokenView FindTokenAt(Vector3 worldPoint)
+    {
+        // Do último para o primeiro: o token criado por último está por cima.
+        for (int i = tokens.Count - 1; i >= 0; i--)
+            if (tokens[i].Contains(worldPoint)) return tokens[i];
+        return null;
+    }
+
     // LateUpdate: o TablePointer já calculou a posição do ponteiro neste quadro.
     void LateUpdate()
     {
@@ -66,17 +84,14 @@ public class TokenManager : MonoBehaviour
 
     void BeginDrag(Vector3 point)
     {
-        // Do último para o primeiro: o token criado por último está por cima.
-        for (int i = tokens.Count - 1; i >= 0; i--)
-        {
-            if (!tokens[i].Contains(point)) continue;
+        TokenView found = FindTokenAt(point);
+        if (found == null) return;
 
-            dragged = tokens[i];
-            grabOffset = dragged.transform.position - point;
-            grabOffset.y = 0f;
-            dragged.SetDragging(true);
-            return;
-        }
+        dragged = found;
+        dragStart = dragged.Data.Position;
+        grabOffset = dragged.transform.position - point;
+        grabOffset.y = 0f;
+        dragged.SetDragging(true);
     }
 
     void EndDrag()

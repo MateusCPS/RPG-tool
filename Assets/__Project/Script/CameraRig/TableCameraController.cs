@@ -15,6 +15,12 @@ public class TableCameraController : MonoBehaviour
     [SerializeField] TableGrid grid;
     [SerializeField] float margin = 2f;
 
+    [Header("Tokens")]
+    [SerializeField] TokenManager tokens;
+
+    bool touchStartedOnToken;
+    static readonly Plane TablePlane = new Plane(Vector3.up, Vector3.zero); 
+
     Camera cam;
 
     void Awake()
@@ -46,43 +52,62 @@ public class TableCameraController : MonoBehaviour
         }
     }
 
-    bool HandleTouch()
+bool HandleTouch()
+{
+    TouchControl first = null, second = null;
+    int count = 0;
+
+    foreach (TouchControl touch in Touchscreen.current.touches)
     {
-        TouchControl first = null, second = null;
-        int count = 0;
+        if (!touch.press.isPressed) continue;
+        if (count == 0) first = touch;
+        else if (count == 1) second = touch;
+        count++;
+    }
 
-        foreach (TouchControl touch in Touchscreen.current.touches)
-        {
-            if(!touch.press.isPressed) continue;
-            if(count == 0) first = touch;
-            else if(count ==1) second = touch;
-            count++;
-        }
-
-        if(count == 1)
-        {
-            Pan(first.delta.ReadValue());
-            return true;
-        }
-
-        if(count >= 2)
-        {
-            Vector2 a = first.position.ReadValue();
-            Vector2 b = second.position.ReadValue();
-            Vector2 aPrev = a - first.delta.ReadValue();
-            Vector2 bPrev = b - second.delta.ReadValue();
-
-            float prevDistance = Vector2.Distance(aPrev, bPrev);
-            float distance = Vector2.Distance(a, b);
-
-            if(prevDistance > 0.01f && distance > 0.01f)
-                ZoomAt((a + b) / 2f, cam.orthographicSize * prevDistance / distance);
-            
-            Pan(((a + b) - (aPrev + bPrev)) / 2f);
-            return true;
-        }
+    if (count == 0)
+    {
+        touchStartedOnToken = false; // nenhum dedo: zera para o próximo toque
         return false;
     }
+
+    // Um token está sendo arrastado: a câmera fica parada, nem pinça.
+    if (tokens != null && tokens.IsDragging) return true;
+
+    if (count == 1)
+    {
+        // A decisão acontece no PRIMEIRO quadro do toque, aqui mesmo na câmera.
+        // Se esperasse o TokenManager (que só age no LateUpdate), a mesa andaria um quadro antes.
+        if (first.press.wasPressedThisFrame)
+            touchStartedOnToken = tokens != null
+                && tokens.IsTokenAt(ScreenToTable(first.position.ReadValue()));
+
+        if (!touchStartedOnToken) Pan(first.delta.ReadValue());
+        return true;
+    }
+
+    // Dois dedos: pinça e arraste, como antes.
+    Vector2 a = first.position.ReadValue();
+    Vector2 b = second.position.ReadValue();
+    Vector2 aPrev = a - first.delta.ReadValue();
+    Vector2 bPrev = b - second.delta.ReadValue();
+
+    float prevDistance = Vector2.Distance(aPrev, bPrev);
+    float distance = Vector2.Distance(a, b);
+
+    if (prevDistance > 0.01f && distance > 0.01f)
+        ZoomAt((a + b) / 2f, cam.orthographicSize * prevDistance / distance);
+
+    Pan(((a + b) - (aPrev + bPrev)) / 2f);
+    return true;
+}
+
+// Ponto do chão embaixo de um ponto da tela.
+Vector3 ScreenToTable(Vector2 screen)
+{
+    Ray ray = cam.ScreenPointToRay(screen);
+    return TablePlane.Raycast(ray, out float d) ? ray.GetPoint(d) : Vector3.positiveInfinity;
+}
 
     void Pan(Vector2 screenDelta)
     {
