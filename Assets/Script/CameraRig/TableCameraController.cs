@@ -12,8 +12,8 @@ public class TableCameraController : MonoBehaviour
 
     [Header("Limites da Mesa")]
     [SerializeField] bool clampToBounds = true;
-    [SerializeField] Vector2 boundsMin = new Vector2(-25f, -25f);
-    [SerializeField] Vector2 boundsMax = new Vector2(25f, 25f);
+    [SerializeField] TableGrid grid;
+    [SerializeField] float margin = 2f;
 
     Camera cam;
 
@@ -103,10 +103,14 @@ public class TableCameraController : MonoBehaviour
 
     void ClampPosition()
     {
-        if(!clampToBounds) return;
+        if (!clampToBounds || grid == null) return;
+
+        Vector2 min = grid.Min - Vector2.one * margin;
+        Vector2 max = grid.Max + Vector2.one * margin;
+
         Vector3 p = transform.position;
-        p.x = Mathf.Clamp(p.x, boundsMin.x, boundsMax.x);
-        p.z = Mathf.Clamp(p.z, boundsMin.y, boundsMax.y);
+        p.x = Mathf.Clamp(p.x, min.x, max.x);
+        p.z = Mathf.Clamp(p.z, min.y, max.y);
         transform.position = p;
     }
 }
