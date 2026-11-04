@@ -1,6 +1,7 @@
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.EventSystems;
 using UnityEngine.InputSystem;
 
 
@@ -9,6 +10,7 @@ public class TokenManager : MonoBehaviour
     [SerializeField] TablePointer pointer;
     [SerializeField] TableGrid grid;
     [SerializeField] TokenView tokenPrefab;
+    [SerializeField] MapBoard map;
 
     [Header("Tokens de teste")]
     [SerializeField] Texture2D[] testImages;
@@ -27,6 +29,22 @@ public class TokenManager : MonoBehaviour
 
     [Header("Modo de movimento")]
     [SerializeField] MovementMode mode = MovementMode.Grip;
+
+    void OnEnable()
+    {
+        if(map != null) map.MapChanged += OnMapChanged;
+    }
+
+    void OnDisable()
+    {
+        if(map != null) map.MapChanged -= OnMapChanged;
+    }
+    
+    void OnMapChanged()
+    {
+        if (rule != null) SetMode(mode);
+    }
+
     IEnumerator Start()
     {
         SetMode(mode);
@@ -102,6 +120,8 @@ public class TokenManager : MonoBehaviour
 
     void BeginDrag(Vector3 point)
     {
+        if (EventSystem.current != null && EventSystem.current.IsPointerOverGameObject()) return;
+
         TokenView found = FindTokenAt(point);
         if (found == null) return;
 
