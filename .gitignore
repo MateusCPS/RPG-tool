@@ -109,3 +109,7 @@ InitTestScene*.unity*
 # Arquivos do editor
 *.slnx
 .vscode/
+
+# Imagens de terceiros 
+/Assets/__Project/Art/Local/
+/Assets/__Project/Art/Local.meta
