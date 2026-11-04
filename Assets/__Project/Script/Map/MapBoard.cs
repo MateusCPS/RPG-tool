@@ -25,6 +25,7 @@ public class MapBoard : MonoBehaviour
     bool started;
 
     public Vector2 SizeInMeters { get; private set; }
+    public event System.Action MapChanged; 
 
     void Awake()
     {
@@ -55,6 +56,7 @@ public class MapBoard : MonoBehaviour
 
         if (guess) pixelsPerCell = GuessPixelsPerCell(image.width, image.height, fileName);
         Apply();
+        MapChanged?.Invoke();
     }
 
     // Carrega uma imagem do disco (PNG ou JPG). Será usada pela janela de abrir arquivo.
