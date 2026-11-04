@@ -383,6 +383,8 @@ MonoBehaviour:
   clampToBounds: 1
   grid: {fileID: 1255209031}
   margin: 2
+  map: {fileID: 462454996}
+  backgroundColor: {r: 0.08, g: 0.08, b: 0.09, a: 1}
   tokens: {fileID: 426688555}
 --- !u!114 &330585549
 MonoBehaviour:
