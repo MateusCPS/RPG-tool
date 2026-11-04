@@ -564,6 +564,7 @@ MonoBehaviour:
   - {fileID: 2800000, guid: ea980dad3654b654fac01bceadddf3df, type: 3}
   - {fileID: 2800000, guid: 6049b9fddcd9ecd428001796d047b1ea, type: 3}
   - {fileID: 2800000, guid: 7dad1b9c76a7ab14f87f41b666343007, type: 3}
+  mode: 0
 --- !u!4 &426688556
 Transform:
   m_ObjectHideFlags: 0
@@ -772,15 +773,15 @@ MonoBehaviour:
   m_faceColor:
     serializedVersion: 2
     rgba: 4294967295
-  m_fontSize: 4
-  m_fontSizeBase: 4
+  m_fontSize: 10
+  m_fontSizeBase: 10
   m_fontWeight: 400
   m_enableAutoSizing: 0
   m_fontSizeMin: 18
   m_fontSizeMax: 72
   m_fontStyle: 0
-  m_HorizontalAlignment: 1
-  m_VerticalAlignment: 512
+  m_HorizontalAlignment: 2
+  m_VerticalAlignment: 256
   m_textAlignment: 65535
   m_characterSpacing: 0
   m_characterHorizontalScale: 1
