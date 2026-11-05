@@ -1,5 +1,7 @@
+using System;
 using System.Collections;
 using System.Collections.Generic;
+using TMPro;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.InputSystem;
@@ -18,12 +20,19 @@ public class TokenManager : MonoBehaviour
     readonly List<TokenView> tokens = new List<TokenView>();
     IMovementRule rule;
     TokenView dragged;
+    TokenView selected;
     Vector3 grabOffset;
-    Vector3 dragStart; 
+    Vector3 dragStart;
     public bool IsDragging => dragged != null;
     public TokenView Dragged => dragged;
+    public TokenView Selected => selected;
     public Vector3 DragStart => dragStart;
     public IMovementRule Rule => rule;
+
+    // Avisa quando a seleção muda (o botão Apagar usa).
+    public event Action SelectionChanged;
+
+    static readonly Plane TablePlane = new Plane(Vector3.up, Vector3.zero);
 
     public enum MovementMode { Grip, Free }
 
@@ -32,14 +41,15 @@ public class TokenManager : MonoBehaviour
 
     void OnEnable()
     {
-        if(map != null) map.MapChanged += OnMapChanged;
+        if (map != null) map.MapChanged += OnMapChanged;
     }
 
     void OnDisable()
     {
-        if(map != null) map.MapChanged -= OnMapChanged;
+        if (map != null) map.MapChanged -= OnMapChanged;
     }
-    
+
+    // Com um mapa novo, reaplica a regra para encaixar e prender os tokens na grade nova.
     void OnMapChanged()
     {
         if (rule != null) SetMode(mode);
@@ -59,20 +69,57 @@ public class TokenManager : MonoBehaviour
         }
     }
 
-    public TokenView Spawn(TokenData data, Texture2D image)
+    // ownsTexture = true quando a imagem foi carregada só para este token
+    // (assim o token libera a memória ao ser apagado). As imagens de teste são da Unity: false.
+    public TokenView Spawn(TokenData data, Texture2D image, bool ownsTexture = false)
     {
         data.Position = rule.Snap(data.Position, data.size);
         TokenView view = Instantiate(tokenPrefab, transform);
-        view.Init(data, image, grid.CellSize);
+        view.Init(data, image, grid.CellSize, ownsTexture);
         tokens.Add(view);
         return view;
     }
-    
+
+    // Cria o token no ponto da mesa que está no centro da tela, e já seleciona.
+    public TokenView SpawnAtScreenCenter(TokenData data, Texture2D image, bool ownsTexture)
+    {
+        Camera cam = Camera.main;
+        Ray ray = cam.ViewportPointToRay(new Vector3(0.5f, 0.5f, 0f));
+        if (TablePlane.Raycast(ray, out float distance))
+            data.Position = ray.GetPoint(distance);
+
+        TokenView view = Spawn(data, image, ownsTexture);
+        Select(view);
+        return view;
+    }
+
+    public void Select(TokenView token)
+    {
+        if (selected == token) return;
+
+        if (selected != null) selected.SetSelected(false);
+        selected = token;
+        if (selected != null) selected.SetSelected(true);
+
+        SelectionChanged?.Invoke();
+    }
+
+    public void DeleteSelected() => Delete(selected);
+
+    public void Delete(TokenView token)
+    {
+        if (token == null || token == dragged) return; // não apaga o token que está sendo arrastado
+
+        tokens.Remove(token);
+        if (selected == token) Select(null);
+        Destroy(token.gameObject);
+    }
+
     public void SetMode(MovementMode newMode)
     {
         mode = newMode;
-        rule = mode == MovementMode.Grip 
-        ? new GridMovementRule(grid) 
+        rule = mode == MovementMode.Grip
+        ? new GridMovementRule(grid)
         : new FreeMovementRule(grid);
 
         foreach (var token in tokens)
@@ -100,11 +147,14 @@ public class TokenManager : MonoBehaviour
 
     void LateUpdate()
     {
+        HandleDeleteKey();
+
         Pointer device = Pointer.current;
         if (device == null || rule == null) return;
 
-        if (device.press.wasPressedThisFrame && pointer.HasPoint)
-            BeginDrag(pointer.WorldPoint);
+        // O clique na mesa (fora da interface) seleciona o token embaixo, ou limpa a seleção.
+        if (device.press.wasPressedThisFrame && pointer.HasPoint && !IsPointerOverUI())
+            PressOnTable(pointer.WorldPoint);
 
         if (dragged == null) return;
 
@@ -118,14 +168,34 @@ public class TokenManager : MonoBehaviour
         }
     }
 
-    void BeginDrag(Vector3 point)
+    // O clique é em cima de um botão ou painel?
+    static bool IsPointerOverUI() =>
+        EventSystem.current != null && EventSystem.current.IsPointerOverGameObject();
+
+    // Clicar num token seleciona e começa o arraste; clicar no vazio limpa a seleção.
+    void PressOnTable(Vector3 point)
     {
-        if (EventSystem.current != null && EventSystem.current.IsPointerOverGameObject()) return;
-
         TokenView found = FindTokenAt(point);
-        if (found == null) return;
+        Select(found);
+        if (found != null) BeginDrag(found, point);
+    }
 
-        dragged = found;
+    // A tecla Delete apaga o token selecionado.
+    void HandleDeleteKey()
+    {
+        Keyboard keyboard = Keyboard.current;
+        if (keyboard == null || !keyboard.deleteKey.wasPressedThisFrame) return;
+
+        // Se a pessoa estiver digitando num campo de texto, o Delete é para o texto, não para o token.
+        GameObject focused = EventSystem.current != null ? EventSystem.current.currentSelectedGameObject : null;
+        if (focused != null && focused.GetComponent<TMP_InputField>() != null) return;
+
+        DeleteSelected();
+    }
+
+    void BeginDrag(TokenView token, Vector3 point)
+    {
+        dragged = token;
         dragStart = dragged.Data.Position;
         grabOffset = dragged.transform.position - point;
         grabOffset.y = 0f;
