@@ -1,24 +1,24 @@
 using UnityEngine;
 
-// A aparência de um token na cena. Lê a posição do TokenData,
-// exceto durante o arraste, quando segue o ponteiro livremente.
+
 public class TokenView : MonoBehaviour
 {
-    [SerializeField] MeshRenderer image;                 // o Quad filho que mostra a imagem
-    [SerializeField] MeshRenderer selection;             // Quad filho que aparece quando selecionado
-    [SerializeField] float restHeight = 0.05f;           // altura parado (acima do destaque)
-    [SerializeField] float dragHeight = 0.15f;           // altura sendo arrastado (fica por cima dos outros)
-    [SerializeField, Range(0.5f, 1f)] float fill = 0.95f; // quanto do quadrado a imagem ocupa
-    [SerializeField] float dragScale = 1.1f;             // cresce um pouco ao ser pego
+    [SerializeField] MeshRenderer image;                 
+    [SerializeField] MeshRenderer selection;            
+    [SerializeField] float restHeight = 0.05f;           
+    [SerializeField] float dragHeight = 0.15f;           
+    [SerializeField, Range(0.5f, 1f)] float fill = 0.95f;
+    [SerializeField] float dragScale = 1.1f;        
+    [SerializeField] TokenStatusDisplay status;     
 
     public TokenData Data { get; private set; }
 
     float cellSize = 1.5f;
     bool dragging;
     bool selected;
-    Material imageMaterial; // a cópia do material deste token
+    Material imageMaterial; 
     Texture2D texture;
-    bool ownsTexture;       // a imagem foi carregada só para este token?
+    bool ownsTexture;      
 
     public void Init(TokenData data, Texture2D texture, float newCellSize, bool ownsTexture = false)
     {
@@ -88,6 +88,8 @@ public class TokenView : MonoBehaviour
 
         if (!dragging)
             transform.position = new Vector3(Data.x, restHeight, Data.z);
+
+        if (status != null) status.Refresh(Data, cellSize);
     }
 
     // Ao apagar o token, libera a memória do material e da imagem (se ela era só dele).

@@ -57,6 +57,7 @@ public class TokenManager : MonoBehaviour
 
     IEnumerator Start()
     {
+        
         SetMode(mode);
 
         yield return null;
