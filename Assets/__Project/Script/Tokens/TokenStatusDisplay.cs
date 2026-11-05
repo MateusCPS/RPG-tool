@@ -1,7 +1,5 @@
 using UnityEngine;
 using TMPro;
-using Unity.Android.Gradle.Manifest;
-using UnityEngine.UIElements;
 
 public class TokenStatusDisplay : MonoBehaviour
 {
