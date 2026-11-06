@@ -26,6 +26,8 @@ public class MapBoard : MonoBehaviour
 
     public Vector2 SizeInMeters { get; private set; }
     public event System.Action MapChanged; 
+    public float PixelsPerCell => pixelsPerCell;
+    public Vector2 OffsetPixels => offsetPixels;
 
     void Awake()
     {

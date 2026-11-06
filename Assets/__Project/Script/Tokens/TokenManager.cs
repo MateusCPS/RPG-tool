@@ -35,6 +35,7 @@ public class TokenManager : MonoBehaviour
     static readonly Plane TablePlane = new Plane(Vector3.up, Vector3.zero);
 
     public enum MovementMode { Grip, Free }
+    public MovementMode Mode => mode; // o modo atual, para a interface mostrar
 
     [Header("Modo de movimento")]
     [SerializeField] MovementMode mode = MovementMode.Grip;
