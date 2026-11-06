@@ -4,7 +4,7 @@ using System.Runtime.InteropServices;
 
 static class WindowsFileDialog
 {
-    [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Auto)]
+    [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
     class OpenFileName
     {
         public int structSize = Marshal.SizeOf(typeof(OpenFileName));
@@ -31,7 +31,7 @@ static class WindowsFileDialog
         public int reservedInt;
         public int flagsEx;
     }
-    [DllImport("comdlg32.dll", CharSet = CharSet.Auto)]
+    [DllImport("comdlg32.dll", CharSet = CharSet.Unicode)]
     static extern bool GetOpenFileName([In, Out] OpenFileName ofn);
 
     const int OFN_EXPLORER = 0x00080000;
@@ -40,7 +40,7 @@ static class WindowsFileDialog
     const int OFN_NOCHANGEDIR = 0x00000008;
 
     public static string OpenFile(string title)
-    [
+    {
         var ofn = new OpenFileName
         {
             filter = "Imagens (*.png, *.jpg)\0*.png;*.jpg;*.jpeg\0\0",
@@ -53,6 +53,6 @@ static class WindowsFileDialog
         };
 
         return GetOpenFileName(ofn) ? ofn.file.TrimEnd('\0') : null;
-    ]
+    }
 }
 #endif
