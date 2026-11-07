@@ -2,34 +2,33 @@ using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.InputSystem.Controls;
 
-// Câmera de cima para a mesa virtual.
-// Computador: arrasta com o botão do meio do mouse e dá zoom com a roda.
-// Celular: arrasta com um dedo, faz pinça com dois dedos para zoom.
-// Ao carregar um mapa, enquadra o mapa inteiro na tela; o que sobra fica com fundo escuro.
 [RequireComponent(typeof(Camera))]
 public class TableCameraController : MonoBehaviour
 {
     [Header("Zoom")]
-    [SerializeField] float minSize = 3f;            // zoom máximo (mais perto)
-    [SerializeField] float maxSize = 30f;           // limite usado só quando não há mapa nem grade
-    [SerializeField] float scrollZoomFactor = 1.1f; // cada clique da roda aproxima ou afasta 10%
+    [SerializeField] float minSize = 3f;
+    [SerializeField] float maxSize = 30f;
+    [SerializeField] float scrollZoomFactor = 1.1f;
+    [SerializeField] float zoomSmoothness = 12f;
 
     [Header("Limites da Mesa")]
     [SerializeField] bool clampToBounds = true;
     [SerializeField] TableGrid grid;
-    [SerializeField] float margin = 1f;             // folga em volta do mapa no enquadramento, em metros
+    [SerializeField] float margin = 1f;
 
     [Header("Mapa")]
-    [SerializeField] MapBoard map;                  // arraste o objeto Map aqui
-    [SerializeField] Color backgroundColor = new Color(0.08f, 0.08f, 0.09f); // fundo escuro em volta do mapa
+    [SerializeField] MapBoard map;
+    [SerializeField] Color backgroundColor = new Color(0.08f, 0.08f, 0.09f);
 
     [Header("Tokens")]
-    [SerializeField] TokenManager tokens;           // arraste o objeto Tokens aqui
+    [SerializeField] TokenManager tokens;
 
     Camera cam;
-    bool touchStartedOnToken; // o dedo atual começou em cima de um token?
+    bool touchStartedOnToken;
+    float targetSize;
+    Vector2 zoomAnchor;
+    bool smoothZooming;
 
-    // Plano do chão (Y = 0), o mesmo do TablePointer.
     static readonly Plane TablePlane = new Plane(Vector3.up, Vector3.zero);
 
     void Awake()
@@ -38,6 +37,7 @@ public class TableCameraController : MonoBehaviour
         cam.orthographic = true;
         cam.clearFlags = CameraClearFlags.SolidColor;
         cam.backgroundColor = backgroundColor;
+        targetSize = cam.orthographicSize;
     }
 
     void OnEnable()
@@ -52,21 +52,19 @@ public class TableCameraController : MonoBehaviour
 
     void Update()
     {
-        // Se houver toque na tela, ele tem prioridade; senão, usa o mouse.
-        if (Touchscreen.current != null && HandleTouch()) return;
-        HandleMouse();
+        bool touched = Touchscreen.current != null && HandleTouch();
+        if (!touched) HandleMouse();
+        UpdateSmoothZoom();
     }
 
-    // Roda todo quadro, depois dos movimentos: se a janela mudar de tamanho,
-    // o zoom e a posição continuam dentro dos limites.
     void LateUpdate()
     {
         float limit = MaxZoom();
         if (cam.orthographicSize > limit) cam.orthographicSize = limit;
+        if (targetSize > limit) targetSize = limit;
         ClampPosition();
     }
 
-    // ---------- Mouse ----------
     void HandleMouse()
     {
         Mouse mouse = Mouse.current;
@@ -79,11 +77,28 @@ public class TableCameraController : MonoBehaviour
         if (scroll != 0f)
         {
             float factor = scroll > 0f ? 1f / scrollZoomFactor : scrollZoomFactor;
-            ZoomAt(mouse.position.ReadValue(), cam.orthographicSize * factor);
+            targetSize = Mathf.Clamp(targetSize * factor, minSize, MaxZoom());
+            zoomAnchor = mouse.position.ReadValue();
+            smoothZooming = true;
         }
     }
 
-    // ---------- Toque ----------
+    void UpdateSmoothZoom()
+    {
+        if (!smoothZooming) return;
+
+        float t = 1f - Mathf.Exp(-zoomSmoothness * Time.deltaTime);
+        float size = Mathf.Lerp(cam.orthographicSize, targetSize, t);
+
+        if (Mathf.Abs(size - targetSize) < 0.001f)
+        {
+            size = targetSize;
+            smoothZooming = false;
+        }
+
+        ZoomAt(zoomAnchor, size);
+    }
+
     bool HandleTouch()
     {
         TouchControl first = null, second = null;
@@ -99,17 +114,14 @@ public class TableCameraController : MonoBehaviour
 
         if (count == 0)
         {
-            touchStartedOnToken = false; // nenhum dedo: zera para o próximo toque
+            touchStartedOnToken = false;
             return false;
         }
 
-        // Um token está sendo arrastado: a câmera fica parada, nem pinça.
         if (tokens != null && tokens.IsDragging) return true;
 
         if (count == 1)
         {
-            // A decisão acontece no PRIMEIRO quadro do toque, aqui mesmo na câmera.
-            // Se esperasse o TokenManager (que só age no LateUpdate), a mesa andaria um quadro antes.
             if (first.press.wasPressedThisFrame)
                 touchStartedOnToken = tokens != null
                     && tokens.IsTokenAt(ScreenToTable(first.position.ReadValue()));
@@ -118,7 +130,6 @@ public class TableCameraController : MonoBehaviour
             return true;
         }
 
-        // Dois dedos: pinça e arraste.
         Vector2 a = first.position.ReadValue();
         Vector2 b = second.position.ReadValue();
         Vector2 aPrev = a - first.delta.ReadValue();
@@ -128,22 +139,22 @@ public class TableCameraController : MonoBehaviour
         float distance = Vector2.Distance(a, b);
 
         if (prevDistance > 0.01f && distance > 0.01f)
+        {
             ZoomAt((a + b) / 2f, cam.orthographicSize * prevDistance / distance);
+            targetSize = cam.orthographicSize;
+            smoothZooming = false;
+        }
 
         Pan(((a + b) - (aPrev + bPrev)) / 2f);
         return true;
     }
 
-    // Ponto do chão embaixo de um ponto da tela.
     Vector3 ScreenToTable(Vector2 screen)
     {
         Ray ray = cam.ScreenPointToRay(screen);
         return TablePlane.Raycast(ray, out float d) ? ray.GetPoint(d) : Vector3.positiveInfinity;
     }
 
-    // ---------- Movimento ----------
-
-    // Move a câmera ao contrário do arraste, para a mesa "grudar" no dedo ou no mouse.
     void Pan(Vector2 screenDelta)
     {
         float unitsPerPixel = 2f * cam.orthographicSize / cam.pixelHeight;
@@ -152,7 +163,6 @@ public class TableCameraController : MonoBehaviour
         ClampPosition();
     }
 
-    // Faz zoom mantendo fixo o ponto da mesa que está embaixo do cursor ou entre os dedos.
     void ZoomAt(Vector2 screenPoint, float newSize)
     {
         Vector3 before = cam.ScreenToWorldPoint(screenPoint);
@@ -162,20 +172,17 @@ public class TableCameraController : MonoBehaviour
         ClampPosition();
     }
 
-    // ---------- Enquadramento e limites ----------
-
-    // Centraliza no mapa e afasta o zoom até o mapa inteiro caber na tela.
     public void FitToGrid()
     {
         GetBounds(out Vector2 min, out Vector2 max);
         Vector2 center = (min + max) / 2f;
         transform.position = new Vector3(center.x, transform.position.y, center.y);
         cam.orthographicSize = MaxZoom();
+        targetSize = cam.orthographicSize;
+        smoothZooming = false;
         ClampPosition();
     }
 
-    // O zoom que faz o mapa inteiro (com a margem) caber na tela.
-    // Também é o limite: não adianta afastar mais do que isso.
     float MaxZoom()
     {
         if (map == null && grid == null) return maxSize;
@@ -183,22 +190,17 @@ public class TableCameraController : MonoBehaviour
         GetBounds(out Vector2 min, out Vector2 max);
         Vector2 size = max - min + Vector2.one * margin * 2f;
 
-        // orthographicSize é metade da altura visível; a largura visível é altura × proporção da tela.
         float fitHeight = size.y / 2f;
         float fitWidth = size.x / 2f / cam.aspect;
-        // "Caber": escolhe o lado que precisa de mais espaço, para nada ficar de fora.
         return Mathf.Max(minSize, Mathf.Max(fitHeight, fitWidth));
     }
 
-    // Impede a borda da tela de passar da borda do mapa.
-    // Num eixo em que o mapa é menor que a tela, a câmera fica centralizada.
     void ClampPosition()
     {
         if (!clampToBounds) return;
 
         GetBounds(out Vector2 min, out Vector2 max);
 
-        // Metade do que a câmera enxerga, em metros.
         float halfHeight = cam.orthographicSize;
         float halfWidth = halfHeight * cam.aspect;
 
@@ -208,11 +210,9 @@ public class TableCameraController : MonoBehaviour
         transform.position = p;
     }
 
-    // Se a tela for maior que o mapa nesse eixo, o intervalo "inverte": aí só centraliza.
     static float ClampAxis(float value, float low, float high) =>
         low <= high ? Mathf.Clamp(value, low, high) : (low + high) / 2f;
 
-    // Limites do mapa no mundo (x = X, y = Z). O MapBoard deixa o mapa centralizado na origem.
     void GetBounds(out Vector2 min, out Vector2 max)
     {
         if (map != null && map.SizeInMeters != Vector2.zero)
