@@ -13,6 +13,10 @@ public class DragDistanceLabel : MonoBehaviour
     [SerializeField] Color overColor = new Color(1f, 0.35f, 0.35f);
     [SerializeField] float height = 0.3f; // acima do token arrastado
     [SerializeField] float gap = 0.3f;    // espaço entre a borda do token e o texto
+    int shownDistance = -1;
+    int shownSpeed = -1;
+
+
 
     void Awake()
     {
@@ -24,7 +28,8 @@ public class DragDistanceLabel : MonoBehaviour
     {
         if (tokens == null || !tokens.IsDragging)
         {
-            label.gameObject.SetActive(false);
+            if (label.gameObject.activeSelf) label.gameObject.SetActive(false);
+            shownDistance = -1;
             return;
         }
 
@@ -36,14 +41,26 @@ public class DragDistanceLabel : MonoBehaviour
         float distance = rule.MeasureDistance(tokens.DragStart, snapped);
         float speed = token.Data.speed;
 
-        // "0.#" mostra no máximo uma casa decimal: 9 → "9", 4.5 → "4,5" (vírgula no Windows em português).
-        label.text = $"{distance:0.#} m / {speed:0.#} m";
-        label.color = distance > speed + 0.001f ? overColor : okColor;
+        int distanceTenths = Mathf.RoundToInt(distance * 10f);
+        int speedTenths = Mathf.RoundToInt(speed * 10f);
+
+        if (distanceTenths != shownDistance || speedTenths != shownSpeed)
+        {
+            shownDistance = distanceTenths;
+            shownSpeed = speedTenths;
+
+            bool over = distanceTenths > speedTenths;
+            label.text = over
+                ? $"{distance:0.#} m / {speed:0.#} m (+{distance - speed: 0.#} m)"
+                : $"{distance:0.#} m / {speed:0.#} m";
+            label.color = over ? overColor : okColor;
+        }
 
         // Posiciona acima do token na tela (+Z no mundo), logo depois da borda dele.
         float half = token.Data.size * grid.CellSize / 2f;
         Vector3 p = token.transform.position;
         label.transform.position = new Vector3(p.x, height, p.z + half + gap);
-        label.gameObject.SetActive(true);
+
+        if(!label.gameObject.activeSelf) label.gameObject.SetActive(true);
     }
 }

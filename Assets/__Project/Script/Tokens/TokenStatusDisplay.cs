@@ -4,11 +4,12 @@ using TMPro;
 public class TokenStatusDisplay : MonoBehaviour
 {
     [SerializeField] TextMeshPro nameLabel;
+    [SerializeField] TextMeshPro hpLabel;
     [SerializeField] Transform hpBar;
     [SerializeField] MeshRenderer hpBackgroud;
     [SerializeField] MeshRenderer hpFill;
 
-    [SerializeField] float barHeight = 0.18f;
+    [SerializeField] float barHeight = 0.3f;
     [SerializeField] float gap = 0.15f;
     [SerializeField, Range(0.3f, 1f)] float barWidth = 0.9f;
 
@@ -23,9 +24,11 @@ public class TokenStatusDisplay : MonoBehaviour
         fillMaterial = hpFill.material;
 
         nameLabel.transform.localRotation = Quaternion.Euler(90f, 0f, 0f);
+        hpLabel.transform.localRotation = Quaternion.Euler(90f, 0f, 0f);
         hpBackgroud.transform.localRotation = Quaternion.Euler(90f, 0f, 0f);
         hpFill.transform.localRotation = Quaternion.Euler(90f, 0f, 0f);
         nameLabel.alignment = TextAlignmentOptions.Center;
+        hpLabel.alignment = TextAlignmentOptions.Center;
     }
 
     public void Refresh(TokenData data, float cellSize)
@@ -51,6 +54,9 @@ public class TokenStatusDisplay : MonoBehaviour
         fillMaterial.color = ratio > 0.5f
             ? Color.Lerp(halfColor, fullColor, (ratio - 0.5f) * 2f)
             : Color.Lerp(lowColor, halfColor, ratio * 2f);
+
+        hpLabel.transform.localPosition = new Vector3(0f, 0.01f, 0f);
+        hpLabel.SetText("{0}/{1}", data.hp, data.maxHp);
     }
 
     void OnDestroy()
