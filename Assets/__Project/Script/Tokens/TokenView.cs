@@ -1,4 +1,8 @@
+using System;
+using TMPro;
+using Unity.Mathematics;
 using UnityEngine;
+using UnityEngine.PlayerLoop;
 
 
 public class TokenView : MonoBehaviour
@@ -9,7 +13,12 @@ public class TokenView : MonoBehaviour
     [SerializeField] float dragHeight = 0.15f;           
     [SerializeField, Range(0.5f, 1f)] float fill = 0.95f;
     [SerializeField] float dragScale = 1.1f;        
-    [SerializeField] TokenStatusDisplay status;     
+    [SerializeField] TokenStatusDisplay status;
+
+    [SerializeField] TextMeshPro initialLabel;
+    [SerializeField, Range(0f, 1f)] float placeholderSaturation = 0.45f;
+    [SerializeField, Range(0f, 1f)] float placeholderBrightness = 0.7f;
+
 
     public TokenData Data { get; private set; }
 
@@ -28,7 +37,12 @@ public class TokenView : MonoBehaviour
         this.ownsTexture = ownsTexture;
 
         imageMaterial = image.material; // cria a cópia do material só para este token
-        if (texture != null) imageMaterial.mainTexture = texture;
+        bool hasImage = texture != null;
+        if (hasImage) imageMaterial.mainTexture = texture;
+        else imageMaterial.color = PlaceholderColor(data.displayName);
+
+        initialLabel.transform.localRotation = Quaternion.Euler(90f, 0f, 0f);
+        initialLabel.gameObject.SetActive(!hasImage);
         image.transform.localRotation = Quaternion.Euler(90f, 0f, 0f); // deita o Quad
 
         // A marcação de seleção fica deitada, um pouco abaixo da imagem, e começa escondida.
@@ -89,7 +103,26 @@ public class TokenView : MonoBehaviour
         if (!dragging)
             transform.position = new Vector3(Data.x, restHeight, Data.z);
 
+        if(initialLabel.gameObject.activeSelf)
+        {
+            initialLabel.text = Initial(Data.displayName);
+            initialLabel.transform.localScale = Vector3.one * Data.size * scale;
+        }
         if (status != null) status.Refresh(Data, cellSize);
+    }
+
+    static string Initial(string name)
+    {
+        string trimmed = name.Trim();
+        return trimmed.Length > 0 ? char.ToUpperInvariant(trimmed[0]).ToString() : "?";
+    }
+
+    Color PlaceholderColor(string name)
+    {
+        uint hash = 2166136261;
+        foreach (char c in name) hash = (hash ^ c) * 16777619;
+        float hue = (hash % 360) / 360f;
+        return Color.HSVToRGB(hue, placeholderSaturation, placeholderBrightness);
     }
 
     // Ao apagar o token, libera a memória do material e da imagem (se ela era só dele).
