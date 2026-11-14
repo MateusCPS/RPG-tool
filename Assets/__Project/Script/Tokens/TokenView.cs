@@ -14,6 +14,7 @@ public class TokenView : MonoBehaviour
     [SerializeField, Range(0.5f, 1f)] float fill = 0.95f;
     [SerializeField] float dragScale = 1.1f;        
     [SerializeField] TokenStatusDisplay status;
+    [SerializeField] NetworkToken network;
 
     [SerializeField] TextMeshPro initialLabel;
     [SerializeField, Range(0f, 1f)] float placeholderSaturation = 0.45f;
@@ -21,6 +22,7 @@ public class TokenView : MonoBehaviour
 
 
     public TokenData Data { get; private set; }
+    public NetworkToken Network => network;
 
     float cellSize = 1.5f;
     bool dragging;

@@ -2664,6 +2664,7 @@ MonoBehaviour:
   grid: {fileID: 1255209031}
   tokenPrefab: {fileID: -8868208250644401710, guid: 18308ea556406b5438b8ff49517734c9, type: 3}
   map: {fileID: 462454996}
+  network: {fileID: 1441814436}
   testImages:
   - {fileID: 2800000, guid: ea980dad3654b654fac01bceadddf3df, type: 3}
   - {fileID: 2800000, guid: 6049b9fddcd9ecd428001796d047b1ea, type: 3}

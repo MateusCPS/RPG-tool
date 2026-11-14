@@ -2,17 +2,19 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using TMPro;
+using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.InputSystem;
 
 
-public class TokenManager : MonoBehaviour
+public class TokenManager : MonoBehaviour, INetworkPrefabInstanceHandler
 {
     [SerializeField] TablePointer pointer;
     [SerializeField] TableGrid grid;
     [SerializeField] TokenView tokenPrefab;
     [SerializeField] MapBoard map;
+    [SerializeField] NetworkManager network;
 
     [Header("Tokens de teste")]
     [SerializeField] Texture2D[] testImages;
@@ -29,6 +31,8 @@ public class TokenManager : MonoBehaviour
     public Vector3 DragStart => dragStart;
     public IMovementRule Rule => rule;
 
+    bool IsClientOnly => network.IsListening && !network.IsServer;
+
     // Avisa quando a seleção muda (o botão Apagar usa).
     public event Action SelectionChanged;
 
@@ -43,11 +47,15 @@ public class TokenManager : MonoBehaviour
     void OnEnable()
     {
         if (map != null) map.MapChanged += OnMapChanged;
+        network.OnServerStarted += OnServerStarted;
+        network.OnClientStarted += OnClientStarted;
     }
 
     void OnDisable()
     {
         if (map != null) map.MapChanged -= OnMapChanged;
+        network.OnServerStarted -= OnServerStarted;
+        network.OnClientStarted -= OnClientStarted;
     }
 
     // Com um mapa novo, reaplica a regra para encaixar e prender os tokens na grade nova.
@@ -58,7 +66,7 @@ public class TokenManager : MonoBehaviour
 
     IEnumerator Start()
     {
-        
+        network.PrefabHandler.AddHandler(tokenPrefab.gameObject, this);
         SetMode(mode);
 
         yield return null;
@@ -71,20 +79,30 @@ public class TokenManager : MonoBehaviour
         }
     }
 
+    void OnDestroy()
+    {
+        if (network != null) network.PrefabHandler.RemoveHandler(tokenPrefab.gameObject);
+    }
+
     // ownsTexture = true quando a imagem foi carregada só para este token
     // (assim o token libera a memória ao ser apagado). As imagens de teste são da Unity: false.
     public TokenView Spawn(TokenData data, Texture2D image, bool ownsTexture = false)
     {
+        if (IsClientOnly) return null;
+
         data.Position = rule.Snap(data.Position, data.size);
         TokenView view = Instantiate(tokenPrefab, transform);
         view.Init(data, image, grid.CellSize, ownsTexture);
         tokens.Add(view);
+        if (network.IsServer) SpawnOnNetwork(view);
         return view;
     }
 
     // Cria o token no ponto da mesa que está no centro da tela, e já seleciona.
     public TokenView SpawnAtScreenCenter(TokenData data, Texture2D image, bool ownsTexture)
     {
+        if (IsClientOnly) return null;
+
         Camera cam = Camera.main;
         Ray ray = cam.ViewportPointToRay(new Vector3(0.5f, 0.5f, 0f));
         if (TablePlane.Raycast(ray, out float distance))
@@ -110,10 +128,15 @@ public class TokenManager : MonoBehaviour
 
     public void Delete(TokenView token)
     {
-        if (token == null || token == dragged) return; // não apaga o token que está sendo arrastado
+        if (token == null || token == dragged || IsClientOnly) return; // não apaga o token que está sendo arrastado
 
-        tokens.Remove(token);
-        if (selected == token) Select(null);
+        if (token.Network.IsSpawned)
+        {
+            token.Network.NetworkObject.Despawn();
+            return;
+        }
+
+        Forget(token);
         Destroy(token.gameObject);
     }
 
@@ -128,6 +151,8 @@ public class TokenManager : MonoBehaviour
         {
             token.Data.Position = rule.Snap(token.Data.Position, token.Data.size);
             token.Refresh();
+            if (network.IsServer && token.Network.IsSpawned)
+                token.Network.Publish(TokenState.From(token.Data));
         }
     }
 
@@ -208,7 +233,85 @@ public class TokenManager : MonoBehaviour
     {
         Vector3 dropped = dragged.transform.position;
         dragged.Data.Position = rule.Snap(dropped, dragged.Data.size);
+
+        if (IsClientOnly)
+            dragged.Network.RequestMove(dragged.Data.Position);
+        else if (dragged.Network.IsSpawned)
+            dragged.Network.Publish(TokenState.From(dragged.Data));
+
         dragged.SetDragging(false);
         dragged = null;
+    }
+
+    void Forget(TokenView token)
+    {
+        tokens.Remove(token);
+        token.Network.MoveRequested -= OnMoveRequested;
+        token.Network.StateChanged -= OnTokenState;
+        if (selected == token) Select(null);
+        if (dragged == token) dragged = null;
+    }
+
+    void OnServerStarted()
+    {
+        foreach (TokenView view in tokens) SpawnOnNetwork(view);
+    }
+
+    void OnClientStarted()
+    {
+        if (network.IsServer) return;
+
+        for (int i = tokens.Count - 1; i >= 0; i--)
+        {
+            TokenView view = tokens[i];
+            Forget(view);
+            Destroy(view.gameObject);
+        }
+    }
+
+    void SpawnOnNetwork(TokenView view)
+    {
+        view.Network.MoveRequested += OnMoveRequested;
+        view.Network.Publish(TokenState.From(view.Data));
+        if (!view.Network.IsSpawned) view.Network.NetworkObject.Spawn();
+    }
+
+    void OnMoveRequested(NetworkToken net, Vector3 target)
+    {
+        TokenView view = net.View;
+        view.Data.Position = rule.Snap(target, view.Data.size);
+        view.Refresh();
+        net.Publish(TokenState.From(view.Data));
+    }
+
+    void OnTokenState(NetworkToken net)
+    {
+        TokenView view = net.View;
+
+        if (view.Data == null)
+        {
+            var data = new TokenData();
+            net.State.ApplyTo(data);
+            view.Init(data, null, grid.CellSize);
+            tokens.Add(view);
+            return;
+        }
+
+        net.State.ApplyTo(view.Data);
+        view.Refresh();
+    }
+
+    NetworkObject INetworkPrefabInstanceHandler.Instantiate(ulong ownerClientId, Vector3 position, Quaternion rotation)
+    {
+        TokenView view = Instantiate(tokenPrefab, transform);
+        view.Network.StateChanged += OnTokenState;
+        return view.Network.NetworkObject;
+    }
+
+    void INetworkPrefabInstanceHandler.Destroy(NetworkObject networkObject)
+    {
+        TokenView view = networkObject.GetComponent<TokenView>();
+        Forget(view);
+        Destroy(networkObject.gameObject);
     }
 }
