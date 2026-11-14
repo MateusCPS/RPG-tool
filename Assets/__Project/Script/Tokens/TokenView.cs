@@ -20,12 +20,18 @@ public class TokenView : MonoBehaviour
     [SerializeField, Range(0f, 1f)] float placeholderSaturation = 0.45f;
     [SerializeField, Range(0f, 1f)] float placeholderBrightness = 0.7f;
 
+    [SerializeField] float smoothing = 15f;
+    [SerializeField] float remoteTimeout = 0.3f;
+
 
     public TokenData Data { get; private set; }
     public NetworkToken Network => network;
 
     float cellSize = 1.5f;
     bool dragging;
+    bool remoteDragging;
+    float lastRemoteTime;
+    Vector3 target;
     bool selected;
     Material imageMaterial; 
     Texture2D texture;
@@ -57,6 +63,7 @@ public class TokenView : MonoBehaviour
 
         gameObject.name = $"Token - {data.displayName}";
         Refresh();
+        transform.position = target;
     }
 
     // O ponto do chão está em cima deste token?
@@ -90,7 +97,7 @@ public class TokenView : MonoBehaviour
     public void Refresh()
     {
         float cell = Data.size * cellSize;
-        float scale = dragging ? dragScale : 1f;
+        float scale = dragging || remoteDragging ? dragScale : 1f;
 
         float imageSize = cell * fill * scale;
         image.transform.localScale = new Vector3(imageSize, imageSize, 1f);
@@ -102,8 +109,8 @@ public class TokenView : MonoBehaviour
             selection.transform.localScale = new Vector3(selectionSize, selectionSize, 1f);
         }
 
-        if (!dragging)
-            transform.position = new Vector3(Data.x, restHeight, Data.z);
+        if (!dragging && !remoteDragging)
+            target = new Vector3(Data.x, restHeight, Data.z);
 
         if(initialLabel.gameObject.activeSelf)
         {
@@ -125,6 +132,40 @@ public class TokenView : MonoBehaviour
         foreach (char c in name) hash = (hash ^ c) * 16777619;
         float hue = (hash % 360) / 360f;
         return Color.HSVToRGB(hue, placeholderSaturation, placeholderBrightness);
+    }
+
+    public void ShowRemoteDrag(Vector3 point)
+    {
+        if(dragging) return;
+
+        lastRemoteTime = Time.time;
+        target = new Vector3(point.x, dragHeight, point.z);
+
+        if (!remoteDragging)
+        {
+            remoteDragging = true;
+            Refresh();
+        } 
+    }
+
+    public void EndRemoteDrag()
+    {
+        remoteDragging = false;
+        Refresh();
+    }
+
+    void Update()
+    {
+        if (remoteDragging && Time.time - lastRemoteTime > remoteTimeout)
+        EndRemoteDrag();
+
+        if (dragging) return;
+
+        Vector3 position = transform.position;
+        if((position - target).sqrMagnitude < 0.000001f) return;
+
+        float t = 1f - Mathf.Exp(-smoothing * Time.deltaTime);
+        transform.position = Vector3.Lerp(position, target, t);
     }
 
     // Ao apagar o token, libera a memória do material e da imagem (se ela era só dele).

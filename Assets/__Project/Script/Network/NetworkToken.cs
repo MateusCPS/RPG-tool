@@ -48,4 +48,24 @@ public class NetworkToken : NetworkBehaviour
     {
         MoveRequested?.Invoke(this, new Vector3(target.x, 0f, target.y));
     }
+
+    public void SendDragPreview(Vector3 point)
+    {
+        var flat = new Vector2(point.x, point.z);
+        if (IsServer) ShowDragRpc(flat);
+        else DragPreviewRpc(flat);
+    }
+
+    [Rpc(SendTo.Server, Delivery = RpcDelivery.Unreliable)]
+    void DragPreviewRpc(Vector2 point)
+    {
+        view.ShowRemoteDrag(new Vector3(point.x, 0f, point.y));
+        ShowDragRpc(point);
+    }
+
+    [Rpc(SendTo.NotServer, Delivery = RpcDelivery.Unreliable)]
+    void ShowDragRpc(Vector2 point)
+    {
+        view.ShowRemoteDrag(new Vector3(point.x, 0f, point.y));
+    }
 }

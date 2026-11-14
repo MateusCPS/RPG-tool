@@ -18,6 +18,7 @@ public class TokenManager : MonoBehaviour, INetworkPrefabInstanceHandler
 
     [Header("Tokens de teste")]
     [SerializeField] Texture2D[] testImages;
+    [SerializeField] float dragSendInterval = 0.05f;
 
     readonly List<TokenView> tokens = new List<TokenView>();
     IMovementRule rule;
@@ -25,6 +26,8 @@ public class TokenManager : MonoBehaviour, INetworkPrefabInstanceHandler
     TokenView selected;
     Vector3 grabOffset;
     Vector3 dragStart;
+    Vector3 lastSentDrag;
+    float nextDragSend;
     public bool IsDragging => dragged != null;
     public TokenView Dragged => dragged;
     public TokenView Selected => selected;
@@ -187,7 +190,11 @@ public class TokenManager : MonoBehaviour, INetworkPrefabInstanceHandler
 
         if (device.press.isPressed)
         {
-            if (pointer.HasPoint) dragged.MoveVisual(pointer.WorldPoint + grabOffset);
+            if (pointer.HasPoint)
+            {
+                dragged.MoveVisual(pointer.WorldPoint + grabOffset);
+                SendDragPreview();
+            }
         }
         else
         {
@@ -243,6 +250,17 @@ public class TokenManager : MonoBehaviour, INetworkPrefabInstanceHandler
         dragged = null;
     }
 
+    void SendDragPreview()
+    {
+        if (!dragged.Network.IsSpawned || Time.time < nextDragSend) return;
+        Vector3 position = dragged.transform.position;
+        if ((position - lastSentDrag).sqrMagnitude < 0.0001f) return;
+
+        nextDragSend = Time.time + dragSendInterval;
+        lastSentDrag = position;
+        dragged.Network.SendDragPreview(position);
+    }
+
     void Forget(TokenView token)
     {
         tokens.Remove(token);
@@ -280,7 +298,7 @@ public class TokenManager : MonoBehaviour, INetworkPrefabInstanceHandler
     {
         TokenView view = net.View;
         view.Data.Position = rule.Snap(target, view.Data.size);
-        view.Refresh();
+        view.EndRemoteDrag();
         net.Publish(TokenState.From(view.Data));
     }
 
@@ -298,7 +316,7 @@ public class TokenManager : MonoBehaviour, INetworkPrefabInstanceHandler
         }
 
         net.State.ApplyTo(view.Data);
-        view.Refresh();
+        view.EndRemoteDrag();
     }
 
     NetworkObject INetworkPrefabInstanceHandler.Instantiate(ulong ownerClientId, Vector3 position, Quaternion rotation)
