@@ -3,6 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using TMPro;
 using Unity.Netcode;
+using Unity.VisualScripting.Antlr3.Runtime;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.InputSystem;
@@ -38,6 +39,8 @@ public class TokenManager : MonoBehaviour, INetworkPrefabInstanceHandler
 
     // Avisa quando a seleção muda (o botão Apagar usa).
     public event Action SelectionChanged;
+    public event Action<TokenView> TokenChanged;
+    public bool CanManageTokens => !IsClientOnly;
 
     static readonly Plane TablePlane = new Plane(Vector3.up, Vector3.zero);
 
@@ -159,6 +162,33 @@ public class TokenManager : MonoBehaviour, INetworkPrefabInstanceHandler
         }
     }
 
+    public void ChangeHp(TokenView token, int delta)
+    {
+        if (token == null || delta == 0) return;
+
+        if (IsClientOnly)
+        {
+            token.Network.RequestHpChange(delta);
+            return;
+        }
+
+        ApplyHpChange(token, delta);
+    }
+
+    void ApplyHpChange(TokenView token, int delta)
+    {
+        TokenData data = token.Data;
+        data.hp = Mathf.Clamp(data.hp + delta, 0, data.maxHp);
+        token.Refresh();
+        if (token.Network.IsSpawned) token.Network.Publish(TokenState.From(data));
+        TokenChanged?.Invoke(token);
+    }
+
+    void OnHpChangeRequested(NetworkToken net, int delta)
+    {
+        ApplyHpChange(net.View, delta);
+    }
+
     void OnValidate()
     {
         if (Application.isPlaying && tokens != null)
@@ -265,6 +295,7 @@ public class TokenManager : MonoBehaviour, INetworkPrefabInstanceHandler
     {
         tokens.Remove(token);
         token.Network.MoveRequested -= OnMoveRequested;
+        token.Network.HpChangeRequested -= OnHpChangeRequested;
         token.Network.StateChanged -= OnTokenState;
         if (selected == token) Select(null);
         if (dragged == token) dragged = null;
@@ -290,6 +321,7 @@ public class TokenManager : MonoBehaviour, INetworkPrefabInstanceHandler
     void SpawnOnNetwork(TokenView view)
     {
         view.Network.MoveRequested += OnMoveRequested;
+        view.Network.HpChangeRequested += OnHpChangeRequested;
         view.Network.Publish(TokenState.From(view.Data));
         if (!view.Network.IsSpawned) view.Network.NetworkObject.Spawn();
     }
@@ -300,6 +332,7 @@ public class TokenManager : MonoBehaviour, INetworkPrefabInstanceHandler
         view.Data.Position = rule.Snap(target, view.Data.size);
         view.EndRemoteDrag();
         net.Publish(TokenState.From(view.Data));
+        TokenChanged?.Invoke(view);
     }
 
     void OnTokenState(NetworkToken net)
@@ -317,6 +350,7 @@ public class TokenManager : MonoBehaviour, INetworkPrefabInstanceHandler
 
         net.State.ApplyTo(view.Data);
         view.EndRemoteDrag();
+        TokenChanged?.Invoke(view);
     }
 
     NetworkObject INetworkPrefabInstanceHandler.Instantiate(ulong ownerClientId, Vector3 position, Quaternion rotation)

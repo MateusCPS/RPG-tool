@@ -26,6 +26,8 @@ public class TokenCreatePanel : MonoBehaviour
 
     public void Open()
     {
+        if (!tokens.CanManageTokens) return;
+
         gameObject.SetActive(true);
         nameField.text = "";
         sizeDropDown.value = 0;

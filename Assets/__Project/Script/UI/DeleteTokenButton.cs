@@ -27,6 +27,6 @@ public class DeleteTokenButton : MonoBehaviour
 
     void Refresh()
     {
-        button.interactable = tokens.Selected != null;
+        button.interactable = tokens.Selected != null && tokens.CanManageTokens;
     }
 }

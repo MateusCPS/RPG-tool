@@ -18,12 +18,19 @@ public class TokenInfoPanel : MonoBehaviour
     void OnEnable()
     {
         tokens.SelectionChanged += Refresh;
+        tokens.TokenChanged += OnTokenChanged;
         Refresh();
     }
 
     void OnDisable()
     {
         tokens.SelectionChanged -= Refresh;
+        tokens.TokenChanged -= OnTokenChanged;
+    }
+
+    void OnTokenChanged(TokenView token)
+    {
+        if (token == tokens.Selected) Refresh();
     }
 
     void Refresh()
@@ -43,14 +50,10 @@ public class TokenInfoPanel : MonoBehaviour
     void ChangeHp(int direction)
     {
         TokenView token = tokens.Selected;
-        if(token == null) return;
-        if(!int.TryParse(amountField.text, out int amount) || amount <= 0) return;
+        if (token == null) return;
+        if (!int.TryParse(amountField.text, out int amount) || amount <= 0) return;
 
-        TokenData data = token.Data;
-        data.hp = Mathf.Clamp(data.hp + amount * direction, 0, data.maxHp);
-
-        token.Refresh();
-        Refresh();
+        tokens.ChangeHp(token, amount * direction);
         amountField.text = "";
     }
 

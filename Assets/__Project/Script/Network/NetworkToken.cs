@@ -14,6 +14,7 @@ public class NetworkToken : NetworkBehaviour
 
     public event Action<NetworkToken> StateChanged;
     public event Action<NetworkToken, Vector3> MoveRequested;
+    public event Action<NetworkToken, int> HpChangeRequested;
 
     public override void OnNetworkSpawn()
     {
@@ -47,6 +48,17 @@ public class NetworkToken : NetworkBehaviour
     void RequestMoveRpc(Vector2 target)
     {
         MoveRequested?.Invoke(this, new Vector3(target.x, 0f, target.y));
+    }
+
+    public void RequestHpChange(int delta)
+    {
+        RequestHpChangeRpc(delta);
+    }
+
+    [Rpc(SendTo.Server)]
+    void RequestHpChangeRpc(int delta)
+    {
+        HpChangeRequested?.Invoke(this, delta);
     }
 
     public void SendDragPreview(Vector3 point)
