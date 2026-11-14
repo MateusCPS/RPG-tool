@@ -25,6 +25,7 @@ public class TableSettingsPanel : MonoBehaviour
     // Botão "Configurações": abre e fecha o painel.
     public void TogglePanel()
     {
+        if(!tokens.CanManageTokens) return;
         panel.SetActive(!panel.activeSelf);
         Refresh();
     }

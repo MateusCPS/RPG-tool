@@ -26,6 +26,8 @@ public class MapBoard : MonoBehaviour
 
     public Vector2 SizeInMeters { get; private set; }
     public event System.Action MapChanged; 
+    public event System.Action CalibrationChanged; 
+
     public float PixelsPerCell => pixelsPerCell;
     public Vector2 OffsetPixels => offsetPixels;
 
@@ -84,6 +86,7 @@ public class MapBoard : MonoBehaviour
         pixelsPerCell = newPixelsPerCell;
         offsetPixels = newOffsetPixels;
         if (image != null) Apply();
+        CalibrationChanged?.Invoke();
     }
 
     // ---------- Cálculo ----------

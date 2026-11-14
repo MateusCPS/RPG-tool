@@ -2669,6 +2669,7 @@ MonoBehaviour:
   - {fileID: 2800000, guid: ea980dad3654b654fac01bceadddf3df, type: 3}
   - {fileID: 2800000, guid: 6049b9fddcd9ecd428001796d047b1ea, type: 3}
   - {fileID: 2800000, guid: 7dad1b9c76a7ab14f87f41b666343007, type: 3}
+  dragSendInterval: 0.05
   mode: 0
 --- !u!4 &426688556
 Transform:
@@ -3138,7 +3139,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 0.93700004}
   m_AnchorMax: {x: 0.11641666, y: 1}
-  m_AnchoredPosition: {x: -803.0608, y: 461.13}
+  m_AnchoredPosition: {x: -803.0608, y: 154}
   m_SizeDelta: {x: 187.87836, y: 43.739983}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &572963362
@@ -4876,6 +4877,82 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &840124533
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 840124535}
+  - component: {fileID: 840124534}
+  - component: {fileID: 840124536}
+  m_Layer: 0
+  m_Name: TableSync
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &840124534
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 840124533}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d5a57f767e5e46a458fc5d3c628d0cbb, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Unity.Netcode.Runtime::Unity.Netcode.NetworkObject
+  GlobalObjectIdHash: 2884789693
+  InScenePlacedSourceGlobalObjectIdHash: 0
+  m_InScenePlacedDisabledByDefault: 0
+  DeferredDespawnTick: 0
+  Ownership: 1
+  AlwaysReplicateAsRoot: 0
+  SynchronizeTransform: 0
+  m_InScenePlaced: 1
+  ActiveSceneSynchronization: 0
+  SceneMigrationSynchronization: 0
+  SpawnWithObservers: 1
+  DontDestroyWithOwner: 0
+  AutoObjectParentSync: 1
+  SyncOwnerTransformWhenParented: 1
+  AllowOwnerToParent: 0
+--- !u!4 &840124535
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 840124533}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 960, y: 540, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &840124536
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 840124533}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 49aa3d1286e676e4db0a5563a43c0ba2, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::TableSync
+  ShowTopMostFoldoutHeaderGroup: 1
+  tokens: {fileID: 426688555}
+  grid: {fileID: 1255209031}
+  map: {fileID: 462454996}
 --- !u!1 &876076174
 GameObject:
   m_ObjectHideFlags: 0
@@ -12637,6 +12714,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::MapLoadButton
   map: {fileID: 462454996}
+  tokens: {fileID: 426688555}
 --- !u!114 &2145320636
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -12767,3 +12845,4 @@ SceneRoots:
   - {fileID: 1026987913}
   - {fileID: 1441814438}
   - {fileID: 1186362224}
+  - {fileID: 840124535}
