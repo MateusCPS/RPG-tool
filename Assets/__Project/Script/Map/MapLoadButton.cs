@@ -14,7 +14,7 @@ public class MapLoadButton : MonoBehaviour
             if (path == null) return;
             if(!map.LoadFromFile(path))
             {
-                Debug.LogError("Falha ao carregar a imagem: {path}");
+                Debug.LogError($"Falha ao carregar a imagem: {path}");
             }
         });
     }

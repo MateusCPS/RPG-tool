@@ -1,13 +1,17 @@
 using UnityEngine;
 using Unity.Netcode;
+using Unity.Collections;
 
 public class TableSync : NetworkBehaviour
 {
     [SerializeField] TokenManager tokens;
     [SerializeField] TableGrid grid;
     [SerializeField] MapBoard map;
+    [SerializeField] ImageService images;
 
     readonly NetworkVariable<TableState> state = new NetworkVariable<TableState>();
+    string mapHash = "";
+    string appliedMapHash = "";
 
     public override void OnNetworkSpawn()
     {
@@ -15,9 +19,9 @@ public class TableSync : NetworkBehaviour
         {
             tokens.ModeChanged += Publish;
             grid.VisibilityChanged += Publish;
-            map.MapChanged += Publish;
+            map.MapChanged += OnMapChanged;
             map.CalibrationChanged += Publish;
-            Publish();
+            OnMapChanged();
             return;
         }
 
@@ -32,7 +36,7 @@ public class TableSync : NetworkBehaviour
         {
             tokens.ModeChanged -= Publish;
             grid.VisibilityChanged -= Publish;
-            map.MapChanged -= Publish;
+            map.MapChanged -= OnMapChanged;
             map.CalibrationChanged -= Publish;
             return;
         }
@@ -40,9 +44,15 @@ public class TableSync : NetworkBehaviour
         state.OnValueChanged -= OnStateChanged;
     }
 
+    void OnMapChanged()
+    {
+        mapHash = map.ImageBytes != null ? images.Register(map.ImageBytes) : "";
+        Publish();
+    }
+
     void Publish()
     {
-        state.Value = new TableState
+        var table = new TableState
         {
             Mode = (int)tokens.Mode,
             GridVisible = grid.Visible,
@@ -50,6 +60,8 @@ public class TableSync : NetworkBehaviour
             OffsetX = map.OffsetPixels.x,
             OffsetY = map.OffsetPixels.y
         };
+        table.MapHash.CopyFromTruncated(mapHash);
+        state.Value = table;
     }
 
     void OnStateChanged(TableState previous, TableState current)
@@ -58,6 +70,25 @@ public class TableSync : NetworkBehaviour
     }
 
     void Apply(TableState table)
+    {
+        string hash = table.MapHash.ToString();
+        if (hash.Length > 0 && hash != appliedMapHash)
+        {
+            appliedMapHash = hash;
+            images.Get(hash, OnMapImageReady);
+            return;
+        }
+
+        ApplySettings(table);
+    }
+
+    void OnMapImageReady(Texture2D texture)
+    {
+        if (texture != null) map.SetImage(texture, "", false);
+        ApplySettings(state.Value);
+    }
+
+    void ApplySettings(TableState table)
     {
         map.SetCalibration(table.PixelsPerCell, new Vector2(table.OffsetX, table.OffsetY));
         grid.SetVisible(table.GridVisible);

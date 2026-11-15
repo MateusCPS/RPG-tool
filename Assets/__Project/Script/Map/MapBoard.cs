@@ -25,6 +25,7 @@ public class MapBoard : MonoBehaviour
     bool started;
 
     public Vector2 SizeInMeters { get; private set; }
+    public byte[] ImageBytes { get; private set; }
     public event System.Action MapChanged; 
     public event System.Action CalibrationChanged; 
 
@@ -67,16 +68,21 @@ public class MapBoard : MonoBehaviour
     public bool LoadFromFile(string path)
     {
         if (!File.Exists(path)) return false;
+        return LoadFromBytes(File.ReadAllBytes(path), Path.GetFileNameWithoutExtension(path));
+    }
 
+    public bool LoadFromBytes(byte[] bytes, string fileName)
+    {
         var texture = new Texture2D(2, 2, TextureFormat.RGBA32, true);
-        if (!texture.LoadImage(File.ReadAllBytes(path))) // redimensiona a textura sozinho
+        if (!texture.LoadImage(bytes))
         {
             Destroy(texture);
             return false;
         }
 
         texture.anisoLevel = 4;
-        SetImage(texture, Path.GetFileNameWithoutExtension(path));
+        ImageBytes = bytes;
+        SetImage(texture, fileName);
         return true;
     }
 
