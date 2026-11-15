@@ -240,6 +240,114 @@ public static class UIStyleTool
         StyleDarkInput(Find(root, "AmountInput"), "Valor");
     }
 
+    [MenuItem("Tools/Mesa Virtual/Montar lista de jogadores")]
+    static void SetupPlayers()
+    {
+        GameObject canvasObject = GameObject.Find("Canvas");
+        var session = Object.FindAnyObjectByType<SessionService>();
+        var sessionPanel = Object.FindAnyObjectByType<SessionPanel>(FindObjectsInactive.Include);
+        var tableSync = Object.FindAnyObjectByType<TableSync>(FindObjectsInactive.Include);
+        if (canvasObject == null || session == null || sessionPanel == null || tableSync == null)
+        {
+            Debug.LogError("UIStyleTool: Canvas, SessionService, SessionPanel ou TableSync não encontrado na cena.");
+            return;
+        }
+
+        Undo.SetCurrentGroupName("Montar lista de jogadores");
+        int group = Undo.GetCurrentGroup();
+        Transform root = canvasObject.transform;
+
+        var roster = tableSync.GetComponent<PlayerRoster>();
+        if (roster == null) roster = Undo.AddComponent<PlayerRoster>(tableSync.gameObject);
+        SetReference(roster, "session", session);
+
+        RectTransform toolbar = FindOrCreateToolbar(root);
+        RectTransform spacer = FindOrCreateChild(toolbar, "Spacer", typeof(LayoutElement));
+        var spacerElement = spacer.GetComponent<LayoutElement>();
+        Undo.RecordObject(spacerElement, "Espaço");
+        spacerElement.flexibleHeight = 1f;
+        Transform leave = CreateButton(toolbar, "LeaveRoom", "Sair da sala");
+        StyleButton(leave, DamageNormal, DamageHighlighted, 48, 20, "Sair da sala");
+        var leaveElement = leave.GetComponent<LayoutElement>();
+        Undo.RecordObject(leaveElement, "Botão sair");
+        leaveElement.flexibleWidth = 0f;
+        MoveTo(spacer, toolbar, toolbar.childCount - 1);
+        MoveTo(leave, toolbar, toolbar.childCount - 1);
+
+        var leaveClick = leave.GetComponent<Button>();
+        Undo.RecordObject(leaveClick, "Ação do botão");
+        while (leaveClick.onClick.GetPersistentEventCount() > 0)
+            UnityEventTools.RemovePersistentListener(leaveClick.onClick, 0);
+        UnityEventTools.AddPersistentListener(leaveClick.onClick, new UnityAction(sessionPanel.LeaveRoom));
+        SetReference(sessionPanel, "leaveButton", leaveClick);
+
+        RectTransform listPanel = FindOrCreateChild(root, "PlayersList", typeof(Image), typeof(VerticalLayoutGroup), typeof(ContentSizeFitter));
+        PlaceInCorner(listPanel, new Vector2(1f, 0f), new Vector2(-16f, 16f), 240f);
+        var listImage = listPanel.GetComponent<Image>();
+        Undo.RecordObject(listImage, "Lista de jogadores");
+        listImage.sprite = AssetDatabase.GetBuiltinExtraResource<Sprite>("UI/Skin/Background.psd");
+        listImage.type = Image.Type.Sliced;
+        listImage.raycastTarget = false;
+        var listLayout = listPanel.GetComponent<VerticalLayoutGroup>();
+        Undo.RecordObject(listLayout, "Lista de jogadores");
+        listLayout.childControlWidth = true;
+        listLayout.childControlHeight = true;
+        listLayout.childForceExpandWidth = true;
+        listLayout.childForceExpandHeight = false;
+        StylePanel(listPanel);
+        var listFitter = listPanel.GetComponent<ContentSizeFitter>();
+        Undo.RecordObject(listFitter, "Lista de jogadores");
+        listFitter.horizontalFit = ContentSizeFitter.FitMode.Unconstrained;
+        listFitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+
+        Transform listText = CreateText(listPanel, "ListText", "Na mesa (1)", 18, false);
+        var listTmp = listText.GetComponent<TMP_Text>();
+        Undo.RecordObject(listTmp, "Lista de jogadores");
+        listTmp.textWrappingMode = TextWrappingModes.NoWrap;
+        listTmp.overflowMode = TextOverflowModes.Ellipsis;
+        listTmp.alignment = TextAlignmentOptions.TopLeft;
+
+        Transform notice = CreateText(root, "PlayerNotice", "", 22, true);
+        var noticeRect = (RectTransform)notice;
+        Undo.RecordObject(noticeRect, "Aviso");
+        noticeRect.anchorMin = noticeRect.anchorMax = noticeRect.pivot = new Vector2(0.5f, 1f);
+        noticeRect.anchoredPosition = new Vector2(0f, -16f);
+        noticeRect.sizeDelta = new Vector2(600f, 40f);
+        noticeRect.localScale = Vector3.one;
+        var noticeTmp = notice.GetComponent<TMP_Text>();
+        Undo.RecordObject(noticeTmp, "Aviso");
+        noticeTmp.alignment = TextAlignmentOptions.Center;
+        noticeTmp.outlineWidth = 0.2f;
+        noticeTmp.outlineColor = new Color32(0, 0, 0, 255);
+
+        GameObject controller = GameObject.Find("PlayersController");
+        if (controller == null)
+        {
+            controller = new GameObject("PlayersController");
+            Undo.RegisterCreatedObjectUndo(controller, "Criar PlayersController");
+        }
+        var playersPanel = controller.GetComponent<PlayersPanel>();
+        if (playersPanel == null) playersPanel = Undo.AddComponent<PlayersPanel>(controller);
+        SetReference(playersPanel, "session", session);
+        SetReference(playersPanel, "roster", roster);
+        SetReference(playersPanel, "listPanel", listPanel.gameObject);
+        SetReference(playersPanel, "listText", listTmp);
+        SetReference(playersPanel, "noticeText", noticeTmp);
+
+        Undo.CollapseUndoOperations(group);
+        EditorSceneManager.MarkSceneDirty(canvasObject.scene);
+        Debug.Log("UIStyleTool: lista de jogadores montada. Ctrl+Z desfaz tudo de uma vez.");
+    }
+
+    static void SetReference(Object target, string field, Object value)
+    {
+        var serialized = new SerializedObject(target);
+        SerializedProperty property = serialized.FindProperty(field);
+        if (property == null) { Warn(field); return; }
+        property.objectReferenceValue = value;
+        serialized.ApplyModifiedProperties();
+    }
+
     static readonly float[] CalibrationSteps = { -10f, -1f, 1f, 10f };
 
     static void ApplyCalibrationRows(Transform root, Transform settings)

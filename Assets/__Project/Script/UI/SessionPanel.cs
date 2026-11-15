@@ -10,6 +10,7 @@ public class SessionPanel : MonoBehaviour
     [SerializeField] TMP_InputField codeField;
     [SerializeField] Button createButton;
     [SerializeField] Button joinButton;
+    [SerializeField] Button leaveButton;
     [SerializeField] TMP_Text statusText;
     [SerializeField] TMP_Text roomCodeText;
 
@@ -38,10 +39,16 @@ public class SessionPanel : MonoBehaviour
         session.Join(nameField.text, codeField.text);
     }
 
+    public void LeaveRoom()
+    {
+        session.Leave();
+    }
+
     void Refresh()
     {
         bool inSession = session.State == SessionService.SessionState.InSession;
         window.SetActive(!inSession);
+        leaveButton.gameObject.SetActive(inSession);
 
         bool showCode = inSession && session.IsHost;
         roomCodeText.gameObject.SetActive(showCode);

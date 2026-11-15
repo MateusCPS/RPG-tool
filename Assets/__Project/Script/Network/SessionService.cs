@@ -21,6 +21,7 @@ public class SessionService : MonoBehaviour
     public bool IsHost => session != null && session.IsHost;
     public string PlayerName { get; private set; } = "";
     public string Error { get; private set; } = "";
+    public string PlayerId => AuthenticationService.Instance.PlayerId;
 
     public event Action Changed;
 
@@ -95,6 +96,44 @@ public class SessionService : MonoBehaviour
         {
             Debug.LogException(e);
             EndWithError("Não foi possível entrar. Confira o código com o mestre.");
+        }
+    }
+
+    public async void Leave()
+    {
+        if (State != SessionState.InSession) return;
+
+        SetState(SessionState.Busy);
+        try
+        {
+            await session.LeaveAsync();
+        }
+        catch (Exception e)
+        {
+            Debug.LogException(e);
+        }
+
+        session = null;
+        Error = "";
+        SetState(SessionState.Ready);
+    }
+
+    public async void RemovePlayer(string playerId)
+    {
+        if (session == null || !session.IsHost || string.IsNullOrEmpty(playerId)) return;
+
+        bool stillMember = false;
+        foreach (var player in session.Players)
+            if (player.Id == playerId) stillMember = true;
+        if (!stillMember) return;
+
+        try
+        {
+            await session.AsHost().RemovePlayerAsync(playerId);
+        }
+        catch (Exception e)
+        {
+            Debug.LogWarning($"Não foi possível remover o jogador da sala: {e.Message}");
         }
     }
 

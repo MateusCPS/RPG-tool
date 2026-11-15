@@ -383,7 +383,21 @@ public class TokenManager : MonoBehaviour, INetworkPrefabInstanceHandler
     void INetworkPrefabInstanceHandler.Destroy(NetworkObject networkObject)
     {
         TokenView view = networkObject.GetComponent<TokenView>();
+
+        if (network.IsServer && network.ShutdownInProgress)
+        {
+            KeepAfterShutdown(view);
+            return;
+        }
+
         Forget(view);
         Destroy(networkObject.gameObject);
+    }
+
+    void KeepAfterShutdown(TokenView view)
+    {
+        view.Network.MoveRequested -= OnMoveRequested;
+        view.Network.HpChangeRequested -= OnHpChangeRequested;
+        view.EndRemoteDrag();
     }
 }
