@@ -13,6 +13,7 @@ public class TokenCreatePanel : MonoBehaviour
     [SerializeField] TMP_Text imageLabel;
 
     Texture2D chosenImage;
+    byte[] chosenBytes;
 
     void Awake() 
     {
@@ -48,21 +49,22 @@ public class TokenCreatePanel : MonoBehaviour
         {
             if (path == null) return;
 
-            Texture2D texture = ImageLoader.LoadFromFile(path);
+            Texture2D texture = ImageLoader.LoadFromFile(path, out byte[] bytes);
             if(texture == null)
             {
-                imageLabel.text = "Não foi possível abrir a image";
+                imageLabel.text = "Não foi possível abrir a imagem";
                 return;
             }
-            SetImage(texture);
+            SetImage(texture, bytes);
         });
     }
 
-    void SetImage(Texture2D texture)
+    void SetImage(Texture2D texture, byte[] bytes = null)
     {
         if(chosenImage != null && chosenImage != texture) Destroy(chosenImage);
 
         chosenImage = texture;
+        chosenBytes = bytes;
         preview.texture = texture;
         preview.enabled = texture != null;
         imageLabel.text = texture != null ? texture.name : "Nenhuma Imagem";
@@ -81,8 +83,9 @@ public class TokenCreatePanel : MonoBehaviour
             maxHp = hp
         };
 
-        tokens.SpawnAtScreenCenter(data, chosenImage, ownsTexture: chosenImage != null);
+        tokens.SpawnAtScreenCenter(data, chosenImage, chosenImage != null, chosenBytes);
         chosenImage = null;
+        chosenBytes = null;
         gameObject.SetActive(false);
     }
 }

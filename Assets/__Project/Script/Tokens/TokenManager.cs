@@ -20,6 +20,7 @@ public class TokenManager : MonoBehaviour, INetworkPrefabInstanceHandler
     [Header("Tokens de teste")]
     [SerializeField] Texture2D[] testImages;
     [SerializeField] float dragSendInterval = 0.05f;
+    [SerializeField] ImageService images;
 
     readonly List<TokenView> tokens = new List<TokenView>();
     IMovementRule rule;
@@ -94,10 +95,11 @@ public class TokenManager : MonoBehaviour, INetworkPrefabInstanceHandler
 
     // ownsTexture = true quando a imagem foi carregada só para este token
     // (assim o token libera a memória ao ser apagado). As imagens de teste são da Unity: false.
-    public TokenView Spawn(TokenData data, Texture2D image, bool ownsTexture = false)
+    public TokenView Spawn(TokenData data, Texture2D image, bool ownsTexture = false, byte[] imageBytes = null)
     {
         if (IsClientOnly) return null;
 
+        if(imageBytes!= null) data.imageHash = images.Register(imageBytes);
         data.Position = rule.Snap(data.Position, data.size);
         TokenView view = Instantiate(tokenPrefab, transform);
         view.Init(data, image, grid.CellSize, ownsTexture);
@@ -107,16 +109,16 @@ public class TokenManager : MonoBehaviour, INetworkPrefabInstanceHandler
     }
 
     // Cria o token no ponto da mesa que está no centro da tela, e já seleciona.
-    public TokenView SpawnAtScreenCenter(TokenData data, Texture2D image, bool ownsTexture)
+    public TokenView SpawnAtScreenCenter(TokenData data, Texture2D image, bool ownsTexture, byte[] imageBytes = null)
     {
         if (IsClientOnly) return null;
-
+        
         Camera cam = Camera.main;
         Ray ray = cam.ViewportPointToRay(new Vector3(0.5f, 0.5f, 0f));
         if (TablePlane.Raycast(ray, out float distance))
             data.Position = ray.GetPoint(distance);
 
-        TokenView view = Spawn(data, image, ownsTexture);
+        TokenView view = Spawn(data, image, ownsTexture, imageBytes);
         Select(view);
         return view;
     }
@@ -348,12 +350,27 @@ public class TokenManager : MonoBehaviour, INetworkPrefabInstanceHandler
             net.State.ApplyTo(data);
             view.Init(data, null, grid.CellSize);
             tokens.Add(view);
+            RequestImage(view);
             return;
         }
 
+        string previousHash = view.Data.imageHash;
         net.State.ApplyTo(view.Data);
+        if (view.Data.imageHash != previousHash) RequestImage(view);
         view.EndRemoteDrag();
         TokenChanged?.Invoke(view);
+    }
+
+    void RequestImage(TokenView view)
+    {
+        string hash = view.Data.imageHash;
+        if (string.IsNullOrEmpty(hash)) return;
+
+        images.Get(hash, texture =>
+        {
+            if (view == null || texture == null || view.Data.imageHash != hash) return;
+            view.SetImage(texture);
+        });
     }
 
     NetworkObject INetworkPrefabInstanceHandler.Instantiate(ulong ownerClientId, Vector3 position, Quaternion rotation)

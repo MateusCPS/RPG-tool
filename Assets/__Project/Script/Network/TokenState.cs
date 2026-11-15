@@ -6,6 +6,7 @@ public struct TokenState : INetworkSerializable, IEquatable<TokenState>
 {
     public FixedString64Bytes Id;
     public FixedString64Bytes Name;
+    public FixedString64Bytes ImageHash;
     public float X;
     public float Z;
     public int Size;
@@ -26,6 +27,7 @@ public struct TokenState : INetworkSerializable, IEquatable<TokenState>
         };
         state.Id.CopyFromTruncated(data.id);
         state.Name.CopyFromTruncated(data.displayName);
+        state.ImageHash.CopyFromTruncated(data.imageHash);
         return state;
     }
 
@@ -39,6 +41,7 @@ public struct TokenState : INetworkSerializable, IEquatable<TokenState>
         data.speed = Speed;
         data.hp = Hp;
         data.maxHp = MaxHp;
+        data.imageHash = ImageHash.ToString();
     }
 
     public void NetworkSerialize<T>(BufferSerializer<T> serializer) where T : IReaderWriter
@@ -51,9 +54,10 @@ public struct TokenState : INetworkSerializable, IEquatable<TokenState>
         serializer.SerializeValue(ref Speed);
         serializer.SerializeValue(ref Hp);
         serializer.SerializeValue(ref MaxHp);
+        serializer.SerializeValue(ref ImageHash);
     }
 
     public bool Equals(TokenState other) =>
         Id == other.Id && Name == other.Name && X == other.X && Z == other.Z &&
-        Size == other.Size && Speed == other.Speed && Hp == other.Hp && MaxHp == other.MaxHp;
+        Size == other.Size && Speed == other.Speed && Hp == other.Hp && MaxHp == other.MaxHp && ImageHash == other.ImageHash;
 }

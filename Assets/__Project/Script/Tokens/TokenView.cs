@@ -66,6 +66,17 @@ public class TokenView : MonoBehaviour
         transform.position = target;
     }
 
+    public void SetImage(Texture2D newTexture)
+    {
+        if (ownsTexture && texture != null) Destroy(texture);
+
+        texture = newTexture;
+        ownsTexture = false;
+        imageMaterial.mainTexture = newTexture;
+        imageMaterial.color = Color.white;
+        initialLabel.gameObject.SetActive(false);    
+    }
+    
     // O ponto do chão está em cima deste token?
     public bool Contains(Vector3 worldPoint)
     {

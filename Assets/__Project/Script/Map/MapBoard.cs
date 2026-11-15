@@ -133,6 +133,8 @@ public class MapBoard : MonoBehaviour
     }
 
     // Chute inicial de pixels por quadrado. O mestre sempre pode corrigir depois.
+    const int minGuessCells = 12;
+
     public static float GuessPixelsPerCell(int width, int height, string fileName)
     {
         // 1) Nome como "taverna_30x20": 30 quadrados de largura.
@@ -146,8 +148,10 @@ public class MapBoard : MonoBehaviour
 
         // 2) Tamanhos de quadrado comuns em mapas prontos.
         int[] common = { 70, 100, 140, 200, 50, 128, 256 };
+        int longest = Mathf.Max(width, height);
         foreach (int size in common)
-            if (width % size == 0 && height % size == 0) return size;
+            if (width % size == 0 && height % size == 0 && longest / size >= minGuessCells)
+                return size;
 
         // 3) Sem pista: assume cerca de 30 quadrados de largura.
         return width / 30f;

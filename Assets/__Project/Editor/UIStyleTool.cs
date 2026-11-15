@@ -1,7 +1,9 @@
 using TMPro;
 using UnityEditor;
+using UnityEditor.Events;
 using UnityEditor.SceneManagement;
 using UnityEngine;
+using UnityEngine.Events;
 using UnityEngine.UI;
 
 public static class UIStyleTool
@@ -57,6 +59,7 @@ public static class UIStyleTool
             StyleButton(Find(settings, "GridButton"), ButtonNormal, ButtonHighlighted, 48, 20, null);
             StyleText(Find(settings, "PixelsLabel"), 18, false);
             StyleText(Find(settings, "OffsetLabel"), 18, false);
+            ApplyCalibrationRows(root, settings);
         }
         else Warn("TableSettingsPanel");
 
@@ -235,6 +238,101 @@ public static class UIStyleTool
         StyleDarkInput(hpField, "10");
         StyleDarkDropdown(sizeField);
         StyleDarkInput(Find(root, "AmountInput"), "Valor");
+    }
+
+    static readonly float[] CalibrationSteps = { -10f, -1f, 1f, 10f };
+
+    static void ApplyCalibrationRows(Transform root, Transform settings)
+    {
+        var panel = root.GetComponentInChildren<TableSettingsPanel>(true);
+        if (panel == null) { Warn("TableSettingsPanel (script)"); return; }
+
+        Transform pixelsLabel = Find(settings, "PixelsLabel");
+        Transform offsetLabel = Find(settings, "OffsetLabel");
+        Activate(pixelsLabel);
+        Activate(offsetLabel);
+
+        RectTransform pixelsRow = CreateStepRow(settings, "PixelsRow", null, new UnityAction<float>(panel.ChangePixels));
+        RectTransform offsetXRow = CreateStepRow(settings, "OffsetXRow", "X", new UnityAction<float>(panel.ChangeOffsetX));
+        RectTransform offsetYRow = CreateStepRow(settings, "OffsetYRow", "Y", new UnityAction<float>(panel.ChangeOffsetY));
+
+        MoveTo(pixelsLabel, settings, 2);
+        MoveTo(pixelsRow, settings, 3);
+        MoveTo(offsetLabel, settings, 4);
+        MoveTo(offsetXRow, settings, 5);
+        MoveTo(offsetYRow, settings, 6);
+    }
+
+    static void Activate(Transform target)
+    {
+        if (target == null || target.gameObject.activeSelf) return;
+        Undo.RecordObject(target.gameObject, "Mostrar calibração");
+        target.gameObject.SetActive(true);
+    }
+
+    static RectTransform CreateStepRow(Transform parent, string name, string prefix, UnityAction<float> action)
+    {
+        RectTransform row = FindOrCreateChild(parent, name, typeof(HorizontalLayoutGroup));
+        var layout = row.GetComponent<HorizontalLayoutGroup>();
+        Undo.RecordObject(layout, "Linha de calibração");
+        layout.spacing = 6f;
+        layout.childAlignment = TextAnchor.MiddleCenter;
+        layout.childControlWidth = true;
+        layout.childControlHeight = true;
+        layout.childForceExpandWidth = true;
+        layout.childForceExpandHeight = true;
+        SetPreferredHeight(row, 40);
+
+        if (prefix != null)
+        {
+            Transform axis = CreateText(row, "Axis", prefix, 18, true);
+            var axisText = axis.GetComponent<TMP_Text>();
+            axisText.alignment = TextAlignmentOptions.Center;
+            var axisElement = axis.GetComponent<LayoutElement>();
+            if (axisElement == null) axisElement = Undo.AddComponent<LayoutElement>(axis.gameObject);
+            else Undo.RecordObject(axisElement, "Largura");
+            axisElement.preferredWidth = 24f;
+            axisElement.flexibleWidth = 0f;
+            axis.SetSiblingIndex(0);
+        }
+
+        for (int i = 0; i < CalibrationSteps.Length; i++)
+        {
+            float step = CalibrationSteps[i];
+            string label = step > 0f ? $"+{step:0}" : $"{step:0}";
+            Transform button = CreateButton(row, "Step" + i, label);
+
+            var click = button.GetComponent<Button>();
+            Undo.RecordObject(click, "Ação do botão");
+            while (click.onClick.GetPersistentEventCount() > 0)
+                UnityEventTools.RemovePersistentListener(click.onClick, 0);
+            UnityEventTools.AddFloatPersistentListener(click.onClick, action, step);
+        }
+
+        return row;
+    }
+
+    static Transform CreateButton(Transform parent, string name, string label)
+    {
+        RectTransform rect = FindOrCreateChild(parent, name, typeof(Image), typeof(Button));
+
+        var button = rect.GetComponent<Button>();
+        Undo.RecordObject(button, "Botão");
+        button.targetGraphic = rect.GetComponent<Image>();
+
+        var text = (RectTransform)CreateText(rect, "Text", label, 18, false);
+        Undo.RecordObject(text, "Texto do botão");
+        text.anchorMin = Vector2.zero;
+        text.anchorMax = Vector2.one;
+        text.offsetMin = Vector2.zero;
+        text.offsetMax = Vector2.zero;
+
+        StyleButton(rect, ButtonNormal, ButtonHighlighted, 40, 18, label);
+
+        var element = rect.GetComponent<LayoutElement>();
+        Undo.RecordObject(element, "Largura");
+        element.flexibleWidth = 1f;
+        return rect;
     }
 
     static void MoveTo(Transform target, Transform parent, int index)
