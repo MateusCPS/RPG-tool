@@ -11,6 +11,7 @@ public class TokenCreatePanel : MonoBehaviour
     [SerializeField] TMP_InputField hpField;
     [SerializeField] RawImage preview;
     [SerializeField] TMP_Text imageLabel;
+    [SerializeField] int maxImageSize = 512;
 
     Texture2D chosenImage;
     byte[] chosenBytes;
@@ -49,7 +50,7 @@ public class TokenCreatePanel : MonoBehaviour
         {
             if (path == null) return;
 
-            Texture2D texture = ImageLoader.LoadFromFile(path, out byte[] bytes);
+            Texture2D texture = ImageLoader.LoadFromFile(path, maxImageSize, true, out byte[] bytes);
             if(texture == null)
             {
                 imageLabel.text = "Não foi possível abrir a imagem";

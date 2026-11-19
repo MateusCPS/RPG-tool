@@ -27,7 +27,11 @@ public class PlayerRoster : NetworkBehaviour
     public override void OnNetworkSpawn()
     {
         players.OnListChanged += OnListChanged;
-        if (IsServer) NetworkManager.OnClientDisconnectCallback += OnClientDisconnected;
+        if (IsServer)
+        {
+            players.Clear();
+            NetworkManager.OnClientDisconnectCallback += OnClientDisconnected;
+        }
         RegisterRpc(session.PlayerName, session.PlayerId);
         Changed?.Invoke();
     }

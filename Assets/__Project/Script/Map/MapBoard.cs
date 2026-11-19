@@ -18,6 +18,7 @@ public class MapBoard : MonoBehaviour
     [SerializeField] float pixelsPerCell = 70f;            // quantos pixels da imagem formam um quadrado
     [SerializeField] Vector2 offsetPixels = Vector2.zero;  // desloca a grade para alinhar com o desenho
     [SerializeField] float cellSize = 1.5f;                // metros por quadrado (regra da mesa)
+    [SerializeField] int maxImageSize = 2048;
 
     MeshRenderer meshRenderer;
     Material material;
@@ -53,13 +54,21 @@ public class MapBoard : MonoBehaviour
 
     // ---------- Entrada da imagem ----------
 
-    public void SetImage(Texture2D texture, string fileName, bool guess = true)
+   public void SetImage(Texture2D texture, string fileName, bool guess = true) =>
+    SetImage(texture, fileName, guess, new Vector2Int(texture.width, texture.height));
+
+    void SetImage(Texture2D texture, string fileName, bool guess, Vector2Int originalSize)
     {
         image = texture;
-        image.wrapMode = TextureWrapMode.Clamp; // a imagem não se repete nas bordas
+        image.wrapMode = TextureWrapMode.Clamp;
         material.mainTexture = image;
 
-        if (guess) pixelsPerCell = GuessPixelsPerCell(image.width, image.height, fileName);
+        if (guess)
+        {
+            float scale = (float)image.width / originalSize.x;
+            pixelsPerCell = GuessPixelsPerCell(originalSize.x, originalSize.y, fileName) * scale;
+        }
+
         Apply();
         MapChanged?.Invoke();
     }
@@ -73,16 +82,11 @@ public class MapBoard : MonoBehaviour
 
     public bool LoadFromBytes(byte[] bytes, string fileName)
     {
-        var texture = new Texture2D(2, 2, TextureFormat.RGBA32, true);
-        if (!texture.LoadImage(bytes))
-        {
-            Destroy(texture);
-            return false;
-        }
+        Texture2D texture = ImageLoader.LoadFromBytes(bytes, maxImageSize, false, out byte[] sendBytes, out Vector2Int originalSize);
+        if (texture == null) return false;
 
-        texture.anisoLevel = 4;
-        ImageBytes = bytes;
-        SetImage(texture, fileName);
+        ImageBytes = sendBytes;
+        SetImage(texture, fileName, true, originalSize);
         return true;
     }
 

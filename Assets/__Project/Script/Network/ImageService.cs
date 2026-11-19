@@ -3,11 +3,14 @@ using System.Collections;
 using System.Collections.Generic;
 using Unity.Netcode;
 using UnityEngine;
+using UnityEngine.UIElements;
 
 public class ImageService : NetworkBehaviour
 {
-    [SerializeField] int chunkSize = 8 * 1024;
-    [SerializeField] int chunksPerFrame = 4;
+    [SerializeField] int chunkSize = 4 * 1024;
+    [SerializeField] int bytesPerSecond = 256 * 1024;
+    [SerializeField] int maxBurstChunks = 4;
+
 
     class Download
     {
@@ -20,6 +23,15 @@ public class ImageService : NetworkBehaviour
     readonly Dictionary<string, Texture2D> recieved = new Dictionary<string, Texture2D>();
     readonly Dictionary<string, Download> downloads = new Dictionary<string, Download>();
 
+    float sendBudged;
+
+    void Update()
+    {
+        if (!IsServer) return;
+        sendBudged = Mathf.Min(sendBudged + bytesPerSecond * Time.unscaledDeltaTime, chunkSize * maxBurstChunks);
+    }
+
+    bool CanSendTo(ulong clientId) => IsServer && NetworkManager.ConnectedClients.ContainsKey(clientId);
     public event Action<float> DownloadProgress;
 
     public string Register(byte[] bytes)
@@ -58,23 +70,21 @@ public class ImageService : NetworkBehaviour
 
     IEnumerator SendChunks(string hash, byte[] bytes, ulong clientId)
     {
-        int sentThisFrame = 0;
-
         for(int offset = 0; offset < bytes.Length; offset += chunkSize)
         {
-            if (!NetworkManager.ConnectedClients.ContainsKey(clientId)) yield break;
-
             int lenght = Mathf.Min(chunkSize, bytes.Length - offset);
+
+            while (sendBudged < lenght)
+            {
+                yield return null;
+                if (!CanSendTo(clientId)) yield break;
+            }       
+            if(!CanSendTo(clientId)) yield break;
+
+            sendBudged -= lenght;
             byte[] chunk = new byte[lenght];
             Buffer.BlockCopy(bytes, offset, chunk, 0, lenght);
             RecieveChunkRpc(hash, offset, bytes.Length, chunk, RpcTarget.Single(clientId, RpcTargetUse.Temp));
-            
-            sentThisFrame++;
-            if(sentThisFrame >= chunksPerFrame)
-            {
-                sentThisFrame = 0;
-                yield return null;
-            }
         }
     }
 
