@@ -1,6 +1,4 @@
 using System.IO;
-using System.Text;
-using UnityEditor.Experimental.GraphView;
 using UnityEngine;
 
 public static class ImageLoader
@@ -53,8 +51,8 @@ public static class ImageLoader
         return texture;
     }
 
-    static byte[] Encode(Texture2D textutre, bool keepAlpha) => 
-        keepAlpha ? textutre.EncodeToPNG() : textutre.EncodeToJPG(JpgQuality);
+    static byte[] Encode(Texture2D texture, bool keepAlpha) => 
+        keepAlpha ? texture.EncodeToPNG() : texture.EncodeToJPG(JpgQuality);
     
     static Texture2D Resize(Texture source, int width, int height)
     {

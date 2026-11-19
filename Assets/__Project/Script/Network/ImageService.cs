@@ -3,7 +3,6 @@ using System.Collections;
 using System.Collections.Generic;
 using Unity.Netcode;
 using UnityEngine;
-using UnityEngine.UIElements;
 
 public class ImageService : NetworkBehaviour
 {
@@ -23,12 +22,12 @@ public class ImageService : NetworkBehaviour
     readonly Dictionary<string, Texture2D> recieved = new Dictionary<string, Texture2D>();
     readonly Dictionary<string, Download> downloads = new Dictionary<string, Download>();
 
-    float sendBudged;
+    float sendBudget;
 
     void Update()
     {
         if (!IsServer) return;
-        sendBudged = Mathf.Min(sendBudged + bytesPerSecond * Time.unscaledDeltaTime, chunkSize * maxBurstChunks);
+        sendBudget = Mathf.Min(sendBudget + bytesPerSecond * Time.unscaledDeltaTime, chunkSize * maxBurstChunks);
     }
 
     bool CanSendTo(ulong clientId) => IsServer && NetworkManager.ConnectedClients.ContainsKey(clientId);
@@ -74,14 +73,14 @@ public class ImageService : NetworkBehaviour
         {
             int lenght = Mathf.Min(chunkSize, bytes.Length - offset);
 
-            while (sendBudged < lenght)
+            while (sendBudget < lenght)
             {
                 yield return null;
                 if (!CanSendTo(clientId)) yield break;
             }       
             if(!CanSendTo(clientId)) yield break;
 
-            sendBudged -= lenght;
+            sendBudget -= lenght;
             byte[] chunk = new byte[lenght];
             Buffer.BlockCopy(bytes, offset, chunk, 0, lenght);
             RecieveChunkRpc(hash, offset, bytes.Length, chunk, RpcTarget.Single(clientId, RpcTargetUse.Temp));

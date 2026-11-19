@@ -196,7 +196,7 @@ public class SessionService : MonoBehaviour
 
     static string JoinErrorMessage(Exception e)
     {
-        const string notFound = "Sala não encontrada, Confira o código com o mestre";
+        const string notFound = "Sala não encontrada. Confira o código com o mestre.";
 
         for (Exception current = e; current != null; current = current.InnerException)
         {
