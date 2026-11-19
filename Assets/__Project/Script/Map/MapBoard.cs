@@ -54,8 +54,16 @@ public class MapBoard : MonoBehaviour
 
     // ---------- Entrada da imagem ----------
 
-   public void SetImage(Texture2D texture, string fileName, bool guess = true) =>
-    SetImage(texture, fileName, guess, new Vector2Int(texture.width, texture.height));
+    public void SetImage(Texture2D texture, string fileName, bool guess = true)
+    {
+        ImageBytes = null;
+        SetImage(texture, fileName, guess, new Vector2Int(texture.width, texture.height));
+    }
+
+    public void ResetToDefault()
+    {
+        if (testImage != null) SetImage(testImage, testImage.name, guessOnStart);
+    }
 
     void SetImage(Texture2D texture, string fileName, bool guess, Vector2Int originalSize)
     {

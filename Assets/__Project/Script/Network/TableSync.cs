@@ -26,6 +26,7 @@ public class TableSync : NetworkBehaviour
         }
 
         state.OnValueChanged += OnStateChanged;
+        appliedMapHash = null;
         Apply(state.Value);
     }
 
@@ -42,6 +43,8 @@ public class TableSync : NetworkBehaviour
         }
 
         state.OnValueChanged -= OnStateChanged;
+        appliedMapHash = null;
+        map.ResetToDefault();
     }
 
     void OnMapChanged()
@@ -72,18 +75,22 @@ public class TableSync : NetworkBehaviour
     void Apply(TableState table)
     {
         string hash = table.MapHash.ToString();
-        if (hash.Length > 0 && hash != appliedMapHash)
+        if (hash != appliedMapHash)
         {
             appliedMapHash = hash;
-            images.Get(hash, OnMapImageReady);
-            return;
+            if (hash.Length > 0)
+            {
+                images.Get(hash, texture => OnMapImageReady(hash,texture));
+                return;
+            }
+            map.ResetToDefault();
         }
-
         ApplySettings(table);
     }
 
-    void OnMapImageReady(Texture2D texture)
+    void OnMapImageReady(string hash, Texture2D texture)
     {
+        if (hash != appliedMapHash) return;
         if (texture != null) map.SetImage(texture, "", false);
         ApplySettings(state.Value);
     }

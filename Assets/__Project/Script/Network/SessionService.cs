@@ -3,7 +3,7 @@ using Unity.Netcode;
 using Unity.Services.Authentication;
 using Unity.Services.Core;
 using Unity.Services.Multiplayer;
-using Unity.VisualScripting;
+using Unity.Services.Lobbies;
 using UnityEngine;
 
 public class SessionService : MonoBehaviour
@@ -95,7 +95,7 @@ public class SessionService : MonoBehaviour
         catch (Exception e)
         {
             Debug.LogException(e);
-            EndWithError("Não foi possível entrar. Confira o código com o mestre.");
+            EndWithError(JoinErrorMessage(e));
         }
     }
 
@@ -160,16 +160,54 @@ public class SessionService : MonoBehaviour
         Error = message;
         SetState(SessionState.Ready);
     }
-
     void OnClientStopped(bool wasHost)
     {
         if (State != SessionState.InSession) return;
-        EndWithError(wasHost? "A sala foi fechada." : "A conxão com a sala caiu");
+        LeaveAfterDrop(wasHost ? "A sala caiu. Crie uma nova sala." : "A sala foi fechada ou a conexão caiu.");
+    }
+
+    async void LeaveAfterDrop(string message)
+    {
+        ISession dropped = session;
+        session = null;
+        SetState(SessionState.Busy);
+
+        if (dropped != null)
+        {
+            try
+            {
+                await dropped.LeaveAsync();
+            }
+            catch (Exception e)
+            {
+                Debug.LogWarning($"Não foi possível sair da sala anterior: {e.Message}");
+            }
+        }
+
+        Error = message;
+        SetState(SessionState.Ready);
     }
 
     void SetState(SessionState newState)
     {
         State = newState;
         Changed?.Invoke();
+    }
+
+    static string JoinErrorMessage(Exception e)
+    {
+        const string notFound = "Sala não encontrada, Confira o código com o mestre";
+
+        for (Exception current = e; current != null; current = current.InnerException)
+        {
+            if (current is LobbyServiceException lobby)
+            {
+                if (lobby.Reason == LobbyExceptionReason.LobbyFull) return "A sala está cheia.";
+                if (lobby.Reason == LobbyExceptionReason.LobbyNotFound || lobby.Reason == LobbyExceptionReason.InvalidJoinCode) return notFound; 
+            }
+
+            if (current is SessionException sessionError && sessionError.Error == SessionError.SessionNotFound) return notFound;
+        }
+        return "Não foi possível entrar. Confira a internet e tente de novo.";
     }
 }
