@@ -46,16 +46,18 @@ public class TokenCreatePanel : MonoBehaviour
 
     public void ChooseImage()
     {
-        FilePicker.PickImage(path =>
+        FilePicker.PickImage((fileBytes, fileName) =>
         {
-            if (path == null) return;
+            if (fileBytes == null) return;
 
-            Texture2D texture = ImageLoader.LoadFromFile(path, maxImageSize, true, out byte[] bytes);
-            if(texture == null)
+            Texture2D texture = ImageLoader.LoadFromBytes(fileBytes, maxImageSize, true, out byte[] bytes, out _);
+            if (texture == null)
             {
                 imageLabel.text = "Não foi possível abrir a imagem";
                 return;
             }
+
+            texture.name = fileName;
             SetImage(texture, bytes);
         });
     }

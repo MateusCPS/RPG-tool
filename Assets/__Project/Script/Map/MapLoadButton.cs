@@ -8,14 +8,12 @@ public class MapLoadButton : MonoBehaviour
     public void LoadMap()
     {
         if (!tokens.CanManageTokens) return;
-        
-        FilePicker.PickImage(path =>
+
+        FilePicker.PickImage((bytes, fileName) =>
         {
-            if (path == null) return;
-            if(!map.LoadFromFile(path))
-            {
-                Debug.LogError($"Falha ao carregar a imagem: {path}");
-            }
+            if (bytes == null) return;
+            if (!map.LoadFromBytes(bytes, fileName))
+                Debug.LogError($"Falha ao carregar a imagem: {fileName}");
         });
     }
 }
