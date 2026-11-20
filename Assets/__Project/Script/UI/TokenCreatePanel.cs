@@ -26,6 +26,15 @@ public class TokenCreatePanel : MonoBehaviour
         hpField.contentType = TMP_InputField.ContentType.IntegerNumber;    
     }
 
+    void OnEnable() => tokens.PermissionsChanged += OnPermissionsChanged;
+
+    void OnDisable() => tokens.PermissionsChanged -= OnPermissionsChanged;
+
+    void OnPermissionsChanged()
+    {
+        if (!tokens.CanManageTokens) Close();
+    }
+
     public void Open()
     {
         if (!tokens.CanManageTokens) return;

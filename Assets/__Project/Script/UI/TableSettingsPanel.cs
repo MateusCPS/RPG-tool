@@ -16,10 +16,19 @@ public class TableSettingsPanel : MonoBehaviour
     [SerializeField] TMP_Text pixelsLabel; // "Pixels por quadrado: 70"
     [SerializeField] TMP_Text offsetLabel; // "Deslocamento: 0, 0"
 
+    void OnEnable() => tokens.PermissionsChanged += OnPermissionsChanged;
+
+    void OnDisable() => tokens.PermissionsChanged -= OnPermissionsChanged;
+
     void Start()
     {
         panel.SetActive(false);
         Refresh();
+    }
+
+    void OnPermissionsChanged()
+    {
+        if (!tokens.CanManageTokens) panel.SetActive(false);
     }
 
     // Botão "Configurações": abre e fecha o painel.

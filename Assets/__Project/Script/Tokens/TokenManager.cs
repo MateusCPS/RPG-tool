@@ -41,6 +41,7 @@ public class TokenManager : MonoBehaviour, INetworkPrefabInstanceHandler
     // Avisa quando a seleção muda (o botão Apagar usa).
     public event Action SelectionChanged;
     public event Action ModeChanged;
+    public event Action PermissionsChanged;
     
     public event Action<TokenView> TokenChanged;
     public bool CanManageTokens => !IsClientOnly;
@@ -313,6 +314,7 @@ public class TokenManager : MonoBehaviour, INetworkPrefabInstanceHandler
 
     void OnClientStarted()
     {
+        PermissionsChanged?.Invoke();
         if (network.IsServer) return;
 
         for (int i = tokens.Count - 1; i >= 0; i--)
