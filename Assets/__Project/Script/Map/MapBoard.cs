@@ -23,6 +23,7 @@ public class MapBoard : MonoBehaviour
     MeshRenderer meshRenderer;
     Material material;
     Texture2D image;
+    bool ownsImage;
     bool started;
 
     public Vector2 SizeInMeters { get; private set; }
@@ -37,6 +38,12 @@ public class MapBoard : MonoBehaviour
     {
         meshRenderer = GetComponent<MeshRenderer>();
         material = meshRenderer.material;
+    }
+
+    void OnDestroy()
+    {
+        if (ownsImage) Destroy(image);
+        Destroy(material);
     }
 
     // Start roda depois de todos os Awake: a grade já está pronta para receber Configure().
@@ -57,7 +64,7 @@ public class MapBoard : MonoBehaviour
     public void SetImage(Texture2D texture, string fileName, bool guess = true)
     {
         ImageBytes = null;
-        SetImage(texture, fileName, guess, new Vector2Int(texture.width, texture.height));
+        SetImage(texture, fileName, guess, new Vector2Int(texture.width, texture.height), false);
     }
 
     public void ResetToDefault()
@@ -65,11 +72,17 @@ public class MapBoard : MonoBehaviour
         if (testImage != null) SetImage(testImage, testImage.name, guessOnStart);
     }
 
-    void SetImage(Texture2D texture, string fileName, bool guess, Vector2Int originalSize)
+    void SetImage(Texture2D texture, string fileName, bool guess, Vector2Int originalSize, bool owned)
     {
+        Texture2D previous = image;
+        bool ownedPrevious = ownsImage;
+
         image = texture;
+        ownsImage = owned;
         image.wrapMode = TextureWrapMode.Clamp;
         material.mainTexture = image;
+
+        if (ownedPrevious && previous != null && previous != texture) Destroy(previous);
 
         if (guess)
         {
@@ -94,7 +107,7 @@ public class MapBoard : MonoBehaviour
         if (texture == null) return false;
 
         ImageBytes = sendBytes;
-        SetImage(texture, fileName, true, originalSize);
+        SetImage(texture, fileName, true, originalSize, true);
         return true;
     }
 
