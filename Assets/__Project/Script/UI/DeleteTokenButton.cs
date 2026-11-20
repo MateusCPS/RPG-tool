@@ -17,16 +17,18 @@ public class DeleteTokenButton : MonoBehaviour
     void OnEnable()
     {
         tokens.SelectionChanged += Refresh;
+        tokens.PermissionsChanged += Refresh;
         Refresh();
     }
 
     void OnDisable()
     {
         tokens.SelectionChanged -= Refresh;
+        tokens.PermissionsChanged -= Refresh;
     }
 
     void Refresh()
     {
-        button.interactable = tokens.Selected != null;
+        button.interactable = tokens.Selected != null && tokens.CanManageTokens;
     }
 }

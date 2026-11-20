@@ -113,3 +113,7 @@ InitTestScene*.unity*
 # Imagens de terceiros 
 /Assets/__Project/Art/Local/
 /Assets/__Project/Art/Local.meta
+
+# Cenas recuperadas pela Unity depois de um travamento
+/[Aa]ssets/_Recovery/
+/[Aa]ssets/_Recovery.meta

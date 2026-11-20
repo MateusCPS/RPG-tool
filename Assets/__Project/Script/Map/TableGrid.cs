@@ -27,11 +27,14 @@ public class TableGrid : MonoBehaviour
     public Vector2 Max => origin + new Vector2(widthInCells, heightInCells) * cellSize;
     public bool Visible => visible;
 
+    public event System.Action VisibilityChanged;
+
     // Mostra ou esconde a grade (o encaixe continua funcionando, só o desenho some).
     public void SetVisible(bool value)
     {
         visible = value;
         if (meshRenderer != null) meshRenderer.enabled = value;
+        VisibilityChanged?.Invoke();
     }
 
     void Awake()

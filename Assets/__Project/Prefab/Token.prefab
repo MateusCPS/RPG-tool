@@ -767,6 +767,8 @@ GameObject:
   - component: {fileID: 428308674158653134}
   - component: {fileID: -8868208250644401710}
   - component: {fileID: 1756895177245043619}
+  - component: {fileID: 5761516812038713957}
+  - component: {fileID: 6120453898127531001}
   m_Layer: 0
   m_Name: Token
   m_TagString: Untagged
@@ -816,6 +818,7 @@ MonoBehaviour:
   initialLabel: {fileID: 8265534453819078613}
   placeholderSaturation: 0.45
   placeholderBrightness: 0.7
+  network: {fileID: 6120453898127531001}
 --- !u!114 &1756895177245043619
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -839,6 +842,46 @@ MonoBehaviour:
   fullColor: {r: 0.3, g: 0.8, b: 0.35, a: 1}
   halfColor: {r: 0.95, g: 0.8, b: 0.25, a: 1}
   lowColor: {r: 0.9, g: 0.25, b: 0.25, a: 1}
+--- !u!114 &5761516812038713957
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7530250269607606413}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d5a57f767e5e46a458fc5d3c628d0cbb, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Unity.Netcode.Runtime::Unity.Netcode.NetworkObject
+  GlobalObjectIdHash: 224981014
+  InScenePlacedSourceGlobalObjectIdHash: 0
+  m_InScenePlacedDisabledByDefault: 0
+  DeferredDespawnTick: 0
+  Ownership: 1
+  AlwaysReplicateAsRoot: 0
+  SynchronizeTransform: 0
+  m_InScenePlaced: 0
+  ActiveSceneSynchronization: 0
+  SceneMigrationSynchronization: 1
+  SpawnWithObservers: 1
+  DontDestroyWithOwner: 0
+  AutoObjectParentSync: 0
+  SyncOwnerTransformWhenParented: 1
+  AllowOwnerToParent: 0
+--- !u!114 &6120453898127531001
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7530250269607606413}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 038d9d8829014735a37aebc7222cf4eb, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::NetworkToken
+  view: {fileID: -8868208250644401710}
 --- !u!1 &8680066119123335452
 GameObject:
   m_ObjectHideFlags: 0

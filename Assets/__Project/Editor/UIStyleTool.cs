@@ -1,7 +1,9 @@
 using TMPro;
 using UnityEditor;
+using UnityEditor.Events;
 using UnityEditor.SceneManagement;
 using UnityEngine;
+using UnityEngine.Events;
 using UnityEngine.UI;
 
 public static class UIStyleTool
@@ -57,6 +59,7 @@ public static class UIStyleTool
             StyleButton(Find(settings, "GridButton"), ButtonNormal, ButtonHighlighted, 48, 20, null);
             StyleText(Find(settings, "PixelsLabel"), 18, false);
             StyleText(Find(settings, "OffsetLabel"), 18, false);
+            ApplyCalibrationRows(root, settings);
         }
         else Warn("TableSettingsPanel");
 
@@ -235,6 +238,245 @@ public static class UIStyleTool
         StyleDarkInput(hpField, "10");
         StyleDarkDropdown(sizeField);
         StyleDarkInput(Find(root, "AmountInput"), "Valor");
+    }
+
+    [MenuItem("Tools/Mesa Virtual/Montar lista de jogadores")]
+    static void SetupPlayers()
+    {
+        GameObject canvasObject = GameObject.Find("Canvas");
+        var session = Object.FindAnyObjectByType<SessionService>();
+        var sessionPanel = Object.FindAnyObjectByType<SessionPanel>(FindObjectsInactive.Include);
+        var tableSync = Object.FindAnyObjectByType<TableSync>(FindObjectsInactive.Include);
+        if (canvasObject == null || session == null || sessionPanel == null || tableSync == null)
+        {
+            Debug.LogError("UIStyleTool: Canvas, SessionService, SessionPanel ou TableSync não encontrado na cena.");
+            return;
+        }
+
+        Undo.SetCurrentGroupName("Montar lista de jogadores");
+        int group = Undo.GetCurrentGroup();
+        Transform root = canvasObject.transform;
+
+        var roster = tableSync.GetComponent<PlayerRoster>();
+        if (roster == null) roster = Undo.AddComponent<PlayerRoster>(tableSync.gameObject);
+        SetReference(roster, "session", session);
+
+        RectTransform toolbar = FindOrCreateToolbar(root);
+        RectTransform spacer = FindOrCreateChild(toolbar, "Spacer", typeof(LayoutElement));
+        var spacerElement = spacer.GetComponent<LayoutElement>();
+        Undo.RecordObject(spacerElement, "Espaço");
+        spacerElement.flexibleHeight = 1f;
+        Transform leave = CreateButton(toolbar, "LeaveRoom", "Sair da sala");
+        StyleButton(leave, DamageNormal, DamageHighlighted, 48, 20, "Sair da sala");
+        var leaveElement = leave.GetComponent<LayoutElement>();
+        Undo.RecordObject(leaveElement, "Botão sair");
+        leaveElement.flexibleWidth = 0f;
+        MoveTo(spacer, toolbar, toolbar.childCount - 1);
+        MoveTo(leave, toolbar, toolbar.childCount - 1);
+
+        var leaveClick = leave.GetComponent<Button>();
+        Undo.RecordObject(leaveClick, "Ação do botão");
+        while (leaveClick.onClick.GetPersistentEventCount() > 0)
+            UnityEventTools.RemovePersistentListener(leaveClick.onClick, 0);
+        UnityEventTools.AddPersistentListener(leaveClick.onClick, new UnityAction(sessionPanel.LeaveRoom));
+        SetReference(sessionPanel, "leaveButton", leaveClick);
+
+        RectTransform listPanel = FindOrCreateChild(root, "PlayersList", typeof(Image), typeof(VerticalLayoutGroup), typeof(ContentSizeFitter));
+        PlaceInCorner(listPanel, new Vector2(1f, 0f), new Vector2(-16f, 16f), 240f);
+        var listImage = listPanel.GetComponent<Image>();
+        Undo.RecordObject(listImage, "Lista de jogadores");
+        listImage.sprite = AssetDatabase.GetBuiltinExtraResource<Sprite>("UI/Skin/Background.psd");
+        listImage.type = Image.Type.Sliced;
+        listImage.raycastTarget = false;
+        var listLayout = listPanel.GetComponent<VerticalLayoutGroup>();
+        Undo.RecordObject(listLayout, "Lista de jogadores");
+        listLayout.childControlWidth = true;
+        listLayout.childControlHeight = true;
+        listLayout.childForceExpandWidth = true;
+        listLayout.childForceExpandHeight = false;
+        StylePanel(listPanel);
+        var listFitter = listPanel.GetComponent<ContentSizeFitter>();
+        Undo.RecordObject(listFitter, "Lista de jogadores");
+        listFitter.horizontalFit = ContentSizeFitter.FitMode.Unconstrained;
+        listFitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+
+        Transform listText = CreateText(listPanel, "ListText", "Na mesa (1)", 18, false);
+        var listTmp = listText.GetComponent<TMP_Text>();
+        Undo.RecordObject(listTmp, "Lista de jogadores");
+        listTmp.textWrappingMode = TextWrappingModes.NoWrap;
+        listTmp.overflowMode = TextOverflowModes.Ellipsis;
+        listTmp.alignment = TextAlignmentOptions.TopLeft;
+
+        Transform notice = CreateText(root, "PlayerNotice", "", 22, true);
+        var noticeRect = (RectTransform)notice;
+        Undo.RecordObject(noticeRect, "Aviso");
+        noticeRect.anchorMin = noticeRect.anchorMax = noticeRect.pivot = new Vector2(0.5f, 1f);
+        noticeRect.anchoredPosition = new Vector2(0f, -16f);
+        noticeRect.sizeDelta = new Vector2(600f, 40f);
+        noticeRect.localScale = Vector3.one;
+        var noticeTmp = notice.GetComponent<TMP_Text>();
+        Undo.RecordObject(noticeTmp, "Aviso");
+        noticeTmp.alignment = TextAlignmentOptions.Center;
+        noticeTmp.outlineWidth = 0.2f;
+        noticeTmp.outlineColor = new Color32(0, 0, 0, 255);
+
+        GameObject controller = GameObject.Find("PlayersController");
+        if (controller == null)
+        {
+            controller = new GameObject("PlayersController");
+            Undo.RegisterCreatedObjectUndo(controller, "Criar PlayersController");
+        }
+        var playersPanel = controller.GetComponent<PlayersPanel>();
+        if (playersPanel == null) playersPanel = Undo.AddComponent<PlayersPanel>(controller);
+        SetReference(playersPanel, "session", session);
+        SetReference(playersPanel, "roster", roster);
+        SetReference(playersPanel, "listPanel", listPanel.gameObject);
+        SetReference(playersPanel, "listText", listTmp);
+        SetReference(playersPanel, "noticeText", noticeTmp);
+
+        Undo.CollapseUndoOperations(group);
+        EditorSceneManager.MarkSceneDirty(canvasObject.scene);
+        Debug.Log("UIStyleTool: lista de jogadores montada. Ctrl+Z desfaz tudo de uma vez.");
+    }
+
+    [MenuItem("Tools/Mesa Virtual/Montar botão de cancelar reconexão")]
+    static void SetupReconnectCancel()
+    {
+        var sessionPanel = Object.FindAnyObjectByType<SessionPanel>(FindObjectsInactive.Include);
+        var window = sessionPanel != null
+            ? new SerializedObject(sessionPanel).FindProperty("window").objectReferenceValue as GameObject
+            : null;
+        Transform row = window != null ? Find(window.transform, "ButtonsRow") : null;
+        if (sessionPanel == null || row == null)
+        {
+            Debug.LogError("UIStyleTool: SessionPanel ou a linha de botões da janela de sala não encontrados.");
+            return;
+        }
+
+        Undo.SetCurrentGroupName("Montar botão de cancelar reconexão");
+        int group = Undo.GetCurrentGroup();
+
+        Transform cancel = CreateButton(row, "CancelarReconexao", "Cancelar");
+        StyleButton(cancel, ButtonNormal, ButtonHighlighted, 48, 22, "Cancelar");
+        MoveTo(cancel, row, row.childCount - 1);
+
+        var click = cancel.GetComponent<Button>();
+        Undo.RecordObject(click, "Ação do botão");
+        while (click.onClick.GetPersistentEventCount() > 0)
+            UnityEventTools.RemovePersistentListener(click.onClick, 0);
+        UnityEventTools.AddPersistentListener(click.onClick, new UnityAction(sessionPanel.CancelReconnect));
+        SetReference(sessionPanel, "cancelButton", click);
+
+        Undo.RecordObject(cancel.gameObject, "Esconder botão");
+        cancel.gameObject.SetActive(false);
+
+        Undo.CollapseUndoOperations(group);
+        EditorSceneManager.MarkSceneDirty(sessionPanel.gameObject.scene);
+        Debug.Log("UIStyleTool: botão de cancelar reconexão montado.");
+    }
+
+    static void SetReference(Object target, string field, Object value)
+    {
+        var serialized = new SerializedObject(target);
+        SerializedProperty property = serialized.FindProperty(field);
+        if (property == null) { Warn(field); return; }
+        property.objectReferenceValue = value;
+        serialized.ApplyModifiedProperties();
+    }
+
+    static readonly float[] CalibrationSteps = { -10f, -1f, 1f, 10f };
+
+    static void ApplyCalibrationRows(Transform root, Transform settings)
+    {
+        var panel = root.GetComponentInChildren<TableSettingsPanel>(true);
+        if (panel == null) { Warn("TableSettingsPanel (script)"); return; }
+
+        Transform pixelsLabel = Find(settings, "PixelsLabel");
+        Transform offsetLabel = Find(settings, "OffsetLabel");
+        Activate(pixelsLabel);
+        Activate(offsetLabel);
+
+        RectTransform pixelsRow = CreateStepRow(settings, "PixelsRow", null, new UnityAction<float>(panel.ChangePixels));
+        RectTransform offsetXRow = CreateStepRow(settings, "OffsetXRow", "X", new UnityAction<float>(panel.ChangeOffsetX));
+        RectTransform offsetYRow = CreateStepRow(settings, "OffsetYRow", "Y", new UnityAction<float>(panel.ChangeOffsetY));
+
+        MoveTo(pixelsLabel, settings, 2);
+        MoveTo(pixelsRow, settings, 3);
+        MoveTo(offsetLabel, settings, 4);
+        MoveTo(offsetXRow, settings, 5);
+        MoveTo(offsetYRow, settings, 6);
+    }
+
+    static void Activate(Transform target)
+    {
+        if (target == null || target.gameObject.activeSelf) return;
+        Undo.RecordObject(target.gameObject, "Mostrar calibração");
+        target.gameObject.SetActive(true);
+    }
+
+    static RectTransform CreateStepRow(Transform parent, string name, string prefix, UnityAction<float> action)
+    {
+        RectTransform row = FindOrCreateChild(parent, name, typeof(HorizontalLayoutGroup));
+        var layout = row.GetComponent<HorizontalLayoutGroup>();
+        Undo.RecordObject(layout, "Linha de calibração");
+        layout.spacing = 6f;
+        layout.childAlignment = TextAnchor.MiddleCenter;
+        layout.childControlWidth = true;
+        layout.childControlHeight = true;
+        layout.childForceExpandWidth = true;
+        layout.childForceExpandHeight = true;
+        SetPreferredHeight(row, 40);
+
+        if (prefix != null)
+        {
+            Transform axis = CreateText(row, "Axis", prefix, 18, true);
+            var axisText = axis.GetComponent<TMP_Text>();
+            axisText.alignment = TextAlignmentOptions.Center;
+            var axisElement = axis.GetComponent<LayoutElement>();
+            if (axisElement == null) axisElement = Undo.AddComponent<LayoutElement>(axis.gameObject);
+            else Undo.RecordObject(axisElement, "Largura");
+            axisElement.preferredWidth = 24f;
+            axisElement.flexibleWidth = 0f;
+            axis.SetSiblingIndex(0);
+        }
+
+        for (int i = 0; i < CalibrationSteps.Length; i++)
+        {
+            float step = CalibrationSteps[i];
+            string label = step > 0f ? $"+{step:0}" : $"{step:0}";
+            Transform button = CreateButton(row, "Step" + i, label);
+
+            var click = button.GetComponent<Button>();
+            Undo.RecordObject(click, "Ação do botão");
+            while (click.onClick.GetPersistentEventCount() > 0)
+                UnityEventTools.RemovePersistentListener(click.onClick, 0);
+            UnityEventTools.AddFloatPersistentListener(click.onClick, action, step);
+        }
+
+        return row;
+    }
+
+    static Transform CreateButton(Transform parent, string name, string label)
+    {
+        RectTransform rect = FindOrCreateChild(parent, name, typeof(Image), typeof(Button));
+
+        var button = rect.GetComponent<Button>();
+        Undo.RecordObject(button, "Botão");
+        button.targetGraphic = rect.GetComponent<Image>();
+
+        var text = (RectTransform)CreateText(rect, "Text", label, 18, false);
+        Undo.RecordObject(text, "Texto do botão");
+        text.anchorMin = Vector2.zero;
+        text.anchorMax = Vector2.one;
+        text.offsetMin = Vector2.zero;
+        text.offsetMax = Vector2.zero;
+
+        StyleButton(rect, ButtonNormal, ButtonHighlighted, 40, 18, label);
+
+        var element = rect.GetComponent<LayoutElement>();
+        Undo.RecordObject(element, "Largura");
+        element.flexibleWidth = 1f;
+        return rect;
     }
 
     static void MoveTo(Transform target, Transform parent, int index)
