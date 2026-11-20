@@ -339,6 +339,42 @@ public static class UIStyleTool
         Debug.Log("UIStyleTool: lista de jogadores montada. Ctrl+Z desfaz tudo de uma vez.");
     }
 
+    [MenuItem("Tools/Mesa Virtual/Montar botão de cancelar reconexão")]
+    static void SetupReconnectCancel()
+    {
+        var sessionPanel = Object.FindAnyObjectByType<SessionPanel>(FindObjectsInactive.Include);
+        var window = sessionPanel != null
+            ? new SerializedObject(sessionPanel).FindProperty("window").objectReferenceValue as GameObject
+            : null;
+        Transform row = window != null ? Find(window.transform, "ButtonsRow") : null;
+        if (sessionPanel == null || row == null)
+        {
+            Debug.LogError("UIStyleTool: SessionPanel ou a linha de botões da janela de sala não encontrados.");
+            return;
+        }
+
+        Undo.SetCurrentGroupName("Montar botão de cancelar reconexão");
+        int group = Undo.GetCurrentGroup();
+
+        Transform cancel = CreateButton(row, "CancelarReconexao", "Cancelar");
+        StyleButton(cancel, ButtonNormal, ButtonHighlighted, 48, 22, "Cancelar");
+        MoveTo(cancel, row, row.childCount - 1);
+
+        var click = cancel.GetComponent<Button>();
+        Undo.RecordObject(click, "Ação do botão");
+        while (click.onClick.GetPersistentEventCount() > 0)
+            UnityEventTools.RemovePersistentListener(click.onClick, 0);
+        UnityEventTools.AddPersistentListener(click.onClick, new UnityAction(sessionPanel.CancelReconnect));
+        SetReference(sessionPanel, "cancelButton", click);
+
+        Undo.RecordObject(cancel.gameObject, "Esconder botão");
+        cancel.gameObject.SetActive(false);
+
+        Undo.CollapseUndoOperations(group);
+        EditorSceneManager.MarkSceneDirty(sessionPanel.gameObject.scene);
+        Debug.Log("UIStyleTool: botão de cancelar reconexão montado.");
+    }
+
     static void SetReference(Object target, string field, Object value)
     {
         var serialized = new SerializedObject(target);

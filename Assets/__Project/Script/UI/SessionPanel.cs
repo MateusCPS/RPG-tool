@@ -11,6 +11,7 @@ public class SessionPanel : MonoBehaviour
     [SerializeField] Button createButton;
     [SerializeField] Button joinButton;
     [SerializeField] Button leaveButton;
+    [SerializeField] Button cancelButton;
     [SerializeField] TMP_Text statusText;
     [SerializeField] TMP_Text roomCodeText;
 
@@ -44,6 +45,11 @@ public class SessionPanel : MonoBehaviour
         session.Leave();
     }
 
+    public void CancelReconnect()
+    {
+        session.CancelReconnect();
+    }
+
     void Refresh()
     {
         bool inSession = session.State == SessionService.SessionState.InSession;
@@ -55,13 +61,18 @@ public class SessionPanel : MonoBehaviour
         if (showCode) roomCodeText.text = $"Sala: {session.Code}";
 
         bool ready = session.State == SessionService.SessionState.Ready;
+        bool reconnecting = session.State == SessionService.SessionState.Reconnecting;
         createButton.interactable = ready;
         joinButton.interactable = ready;
+        createButton.gameObject.SetActive(!reconnecting);
+        joinButton.gameObject.SetActive(!reconnecting);
+        cancelButton.gameObject.SetActive(reconnecting);
 
         statusText.text = session.State switch
         {
             SessionService.SessionState.Starting => "Conectando...",
             SessionService.SessionState.Busy => "Aguarde...",
+            SessionService.SessionState.Reconnecting => $"Reconectando... (tentativa {session.ReconnectAttempt} de {session.ReconnectAttempts})",
             _ => session.Error
         };
     }

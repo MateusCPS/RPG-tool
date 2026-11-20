@@ -20,6 +20,7 @@ public class PlayersPanel : MonoBehaviour
         roster.Changed += Refresh;
         roster.PlayerJoined += OnPlayerJoined;
         roster.PlayerLeft += OnPlayerLeft;
+        roster.PlayerReturned += OnPlayerReturned;
     }
 
     void OnDisable()
@@ -28,6 +29,7 @@ public class PlayersPanel : MonoBehaviour
         roster.Changed -= Refresh;
         roster.PlayerJoined -= OnPlayerJoined;
         roster.PlayerLeft -= OnPlayerLeft;
+        roster.PlayerReturned -= OnPlayerReturned;
     }
 
     void Start()
@@ -58,6 +60,8 @@ public class PlayersPanel : MonoBehaviour
     void OnPlayerJoined(string playerName) => ShowNotice($"{playerName} entrou na mesa");
 
     void OnPlayerLeft(string playerName) => ShowNotice($"{playerName} saiu da mesa");
+
+    void OnPlayerReturned(string playerName) => ShowNotice($"{playerName} voltou para a mesa");
 
     void ShowNotice(string message)
     {

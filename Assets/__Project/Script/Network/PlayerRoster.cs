@@ -15,6 +15,7 @@ public class PlayerRoster : NetworkBehaviour
     public event Action Changed;
     public event Action<string> PlayerJoined;
     public event Action<string> PlayerLeft;
+    public event Action<string> PlayerReturned;
 
     public int Count => players.Count;
     public PlayerEntry this[int index] => players[index];
@@ -48,11 +49,42 @@ public class PlayerRoster : NetworkBehaviour
     {
         ulong clientId = rpcParams.Receive.SenderClientId;
         if (IndexOf(clientId) >= 0) return;
+        if (ReplacePrevious(clientId, playerId)) return;
 
         playerIds[clientId] = playerId;
         var entry = new PlayerEntry { ClientId = clientId };
         entry.Name.CopyFromTruncated(UniqueName(CleanName(playerName)));
         players.Add(entry);
+    }
+
+    bool ReplacePrevious(ulong clientId, string playerId)
+    {
+        if (string.IsNullOrEmpty(playerId)) return false;
+
+        ulong previousClient = 0;
+        bool found = false;
+        foreach (var pair in playerIds)
+        {
+            if (pair.Value != playerId) continue;
+            previousClient = pair.Key;
+            found = true;
+            break;
+        }
+        if (!found) return false;
+
+        int index = IndexOf(previousClient);
+        if (index < 0) return false;
+
+        playerIds.Remove(previousClient);
+        playerIds[clientId] = playerId;
+
+        PlayerEntry entry = players[index];
+        entry.ClientId = clientId;
+        players[index] = entry;
+
+        if (NetworkManager.ConnectedClients.ContainsKey(previousClient))
+            NetworkManager.DisconnectClient(previousClient);
+        return true;
     }
 
     void OnClientDisconnected(ulong clientId)
@@ -75,6 +107,8 @@ public class PlayerRoster : NetworkBehaviour
             PlayerJoined?.Invoke(change.Value.Name.ToString());
         else if (change.Type == NetworkListEvent<PlayerEntry>.EventType.RemoveAt)
             PlayerLeft?.Invoke(change.Value.Name.ToString());
+        else if (change.Type == NetworkListEvent<PlayerEntry>.EventType.Value)
+            PlayerReturned?.Invoke(change.Value.Name.ToString());
 
         Changed?.Invoke();
     }

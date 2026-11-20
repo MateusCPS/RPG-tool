@@ -8,13 +8,17 @@ using UnityEngine;
 
 public class SessionService : MonoBehaviour
 {
-    public enum SessionState {Starting, Ready, Busy, InSession, Failed}
+    public enum SessionState {Starting, Ready, Busy, InSession, Failed, Reconnecting}
 
     [SerializeField] NetworkManager network;
     [SerializeField] int maxPlayers = 7;
     [SerializeField] int maxNameLength = 20;
+    [SerializeField] int reconnectAttempts = 5;
+    [SerializeField] float reconnectDelay = 3f;
 
     ISession session;
+    string joinedCode;
+    int reconnectRun;
 
     public SessionState State { get; private set; } = SessionState.Starting;
     public string Code => session?.Code;
@@ -22,6 +26,8 @@ public class SessionService : MonoBehaviour
     public string PlayerName { get; private set; } = "";
     public string Error { get; private set; } = "";
     public string PlayerId => AuthenticationService.Instance.PlayerId;
+    public int ReconnectAttempt { get; private set; }
+    public int ReconnectAttempts => reconnectAttempts;
 
     public event Action Changed;
 
@@ -64,6 +70,7 @@ public class SessionService : MonoBehaviour
                 .WithRelayNetwork()
                 .WithNetworkOptions(new NetworkOptions{ RelayProtocol = RelayProtocol.WSS });
             session = await MultiplayerService.Instance.CreateSessionAsync(options);
+            joinedCode = null;
             SetState(SessionState.InSession);
         }
         catch (Exception e)
@@ -87,9 +94,8 @@ public class SessionService : MonoBehaviour
 
         try
         {
-            var options = new JoinSessionOptions()
-                .WithNetworkOptions(new NetworkOptions{ RelayProtocol = RelayProtocol.WSS});
-            session = await MultiplayerService.Instance.JoinSessionByCodeAsync(cleanCode, options);
+            session = await MultiplayerService.Instance.JoinSessionByCodeAsync(cleanCode, JoinOptions());
+            joinedCode = cleanCode;
             SetState(SessionState.InSession);
         }
         catch (Exception e)
@@ -163,7 +169,11 @@ public class SessionService : MonoBehaviour
     void OnClientStopped(bool wasHost)
     {
         if (State != SessionState.InSession) return;
-        LeaveAfterDrop(wasHost ? "A sala caiu. Crie uma nova sala." : "A sala foi fechada ou a conexão caiu.");
+
+        if (wasHost || string.IsNullOrEmpty(joinedCode))
+            LeaveAfterDrop("A sala caiu. Crie uma nova sala.");
+        else
+            Reconnect();
     }
 
     async void LeaveAfterDrop(string message)
@@ -172,21 +182,87 @@ public class SessionService : MonoBehaviour
         session = null;
         SetState(SessionState.Busy);
 
-        if (dropped != null)
-        {
-            try
-            {
-                await dropped.LeaveAsync();
-            }
-            catch (Exception e)
-            {
-                Debug.LogWarning($"Não foi possível sair da sala anterior: {e.Message}");
-            }
-        }
+        await LeaveQuietly(dropped);
 
         Error = message;
         SetState(SessionState.Ready);
     }
+
+    async void Reconnect()
+    {
+        int run = ++reconnectRun;
+        ISession dropped = session;
+        session = null;
+        ReconnectAttempt = 0;
+        SetState(SessionState.Reconnecting);
+
+        await LeaveQuietly(dropped);
+
+        for (int attempt = 1; attempt <= reconnectAttempts; attempt++)
+        {
+            if (run != reconnectRun) return;
+            ReconnectAttempt = attempt;
+            Changed?.Invoke();
+
+            try
+            {
+                ISession joined = await MultiplayerService.Instance.JoinSessionByCodeAsync(joinedCode, JoinOptions());
+                if (run != reconnectRun)
+                {
+                    await LeaveQuietly(joined);
+                    return;
+                }
+
+                session = joined;
+                Error = "";
+                SetState(SessionState.InSession);
+                return;
+            }
+            catch (Exception e)
+            {
+                Debug.LogWarning($"Tentativa {attempt} de reconexão falhou: {e.Message}");
+                if (run != reconnectRun) return;
+                if (IsRoomGone(e))
+                {
+                    Error = "A sala foi fechada pelo mestre.";
+                    SetState(SessionState.Ready);
+                    return;
+                }
+            }
+
+            if (attempt < reconnectAttempts) await Awaitable.WaitForSecondsAsync(reconnectDelay);
+        }
+
+        if (run != reconnectRun) return;
+        Error = "Não foi possível voltar para a sala. Tente entrar de novo.";
+        SetState(SessionState.Ready);
+    }
+
+    public void CancelReconnect()
+    {
+        if (State != SessionState.Reconnecting) return;
+
+        reconnectRun++;
+        Error = "";
+        SetState(SessionState.Ready);
+    }
+
+    static async Awaitable LeaveQuietly(ISession target)
+    {
+        if (target == null) return;
+
+        try
+        {
+            await target.LeaveAsync();
+        }
+        catch (Exception e)
+        {
+            Debug.LogWarning($"Não foi possível sair da sala anterior: {e.Message}");
+        }
+    }
+
+    static JoinSessionOptions JoinOptions() =>
+        new JoinSessionOptions().WithNetworkOptions(new NetworkOptions { RelayProtocol = RelayProtocol.WSS });
 
     void SetState(SessionState newState)
     {
@@ -196,18 +272,27 @@ public class SessionService : MonoBehaviour
 
     static string JoinErrorMessage(Exception e)
     {
-        const string notFound = "Sala não encontrada. Confira o código com o mestre.";
+        if (IsRoomGone(e)) return "Sala não encontrada. Confira o código com o mestre.";
 
         for (Exception current = e; current != null; current = current.InnerException)
-        {
-            if (current is LobbyServiceException lobby)
-            {
-                if (lobby.Reason == LobbyExceptionReason.LobbyFull) return "A sala está cheia.";
-                if (lobby.Reason == LobbyExceptionReason.LobbyNotFound || lobby.Reason == LobbyExceptionReason.InvalidJoinCode) return notFound; 
-            }
+            if (current is LobbyServiceException lobby && lobby.Reason == LobbyExceptionReason.LobbyFull)
+                return "A sala está cheia.";
 
-            if (current is SessionException sessionError && sessionError.Error == SessionError.SessionNotFound) return notFound;
-        }
         return "Não foi possível entrar. Confira a internet e tente de novo.";
+    }
+
+    static bool IsRoomGone(Exception e)
+    {
+        for (Exception current = e; current != null; current = current.InnerException)
+        {
+            if (current is LobbyServiceException lobby &&
+                (lobby.Reason == LobbyExceptionReason.LobbyNotFound || lobby.Reason == LobbyExceptionReason.InvalidJoinCode))
+                return true;
+
+            if (current is SessionException sessionError &&
+                (sessionError.Error == SessionError.SessionNotFound || sessionError.Error == SessionError.SessionDeleted))
+                return true;
+        }
+        return false;
     }
 }
