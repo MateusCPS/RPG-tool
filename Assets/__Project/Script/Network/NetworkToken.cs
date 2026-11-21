@@ -13,8 +13,9 @@ public class NetworkToken : NetworkBehaviour
     public TokenState State => state.Value;
 
     public event Action<NetworkToken> StateChanged;
-    public event Action<NetworkToken, Vector3> MoveRequested;
-    public event Action<NetworkToken, int> HpChangeRequested;
+    public event Action<NetworkToken, Vector3, ulong> MoveRequested;
+    public event Action<NetworkToken, int, ulong> HpChangeRequested;
+    public event Action<NetworkToken, Vector3, ulong> DragPreviewRequested;
 
     public override void OnNetworkSpawn()
     {
@@ -34,20 +35,31 @@ public class NetworkToken : NetworkBehaviour
         else pending = newState;
     }
 
-    public void RequestMove(Vector3 target)
-    {
-        RequestMoveRpc(new Vector2(target.x, target.z));
-    }
-
     void OnStateChanged(TokenState previous, TokenState current)
     {
         StateChanged?.Invoke(this);
     }
 
-    [Rpc(SendTo.Server)]
-    void RequestMoveRpc(Vector2 target)
+    public void RequestMove(Vector3 target)
     {
-        MoveRequested?.Invoke(this, new Vector3(target.x, 0f, target.y));
+        RequestMoveRpc(new Vector2(target.x, target.z));
+    }
+
+    [Rpc(SendTo.Server)]
+    void RequestMoveRpc(Vector2 target, RpcParams rpcParams = default)
+    {
+        MoveRequested?.Invoke(this, new Vector3(target.x, 0f, target.y), rpcParams.Receive.SenderClientId);
+    }
+
+    public void RejectMove(ulong clientId)
+    {
+        MoveRejectedRpc(RpcTarget.Single(clientId, RpcTargetUse.Temp));
+    }
+
+    [Rpc(SendTo.SpecifiedInParams)]
+    void MoveRejectedRpc(RpcParams rpcParams)
+    {
+        StateChanged?.Invoke(this);
     }
 
     public void RequestHpChange(int delta)
@@ -56,9 +68,9 @@ public class NetworkToken : NetworkBehaviour
     }
 
     [Rpc(SendTo.Server)]
-    void RequestHpChangeRpc(int delta)
+    void RequestHpChangeRpc(int delta, RpcParams rpcParams = default)
     {
-        HpChangeRequested?.Invoke(this, delta);
+        HpChangeRequested?.Invoke(this, delta, rpcParams.Receive.SenderClientId);
     }
 
     public void SendDragPreview(Vector3 point)
@@ -69,10 +81,15 @@ public class NetworkToken : NetworkBehaviour
     }
 
     [Rpc(SendTo.Server, Delivery = RpcDelivery.Unreliable)]
-    void DragPreviewRpc(Vector2 point)
+    void DragPreviewRpc(Vector2 point, RpcParams rpcParams = default)
     {
-        view.ShowRemoteDrag(new Vector3(point.x, 0f, point.y));
-        ShowDragRpc(point);
+        DragPreviewRequested?.Invoke(this, new Vector3(point.x, 0f, point.y), rpcParams.Receive.SenderClientId);
+    }
+
+    public void RelayDragPreview(Vector3 point)
+    {
+        view.ShowRemoteDrag(point);
+        ShowDragRpc(new Vector2(point.x, point.z));
     }
 
     [Rpc(SendTo.NotServer, Delivery = RpcDelivery.Unreliable)]

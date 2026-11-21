@@ -3,7 +3,6 @@ using System.Collections;
 using System.Collections.Generic;
 using TMPro;
 using Unity.Netcode;
-using Unity.VisualScripting.Antlr3.Runtime;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.InputSystem;
@@ -21,6 +20,8 @@ public class TokenManager : MonoBehaviour, INetworkPrefabInstanceHandler
     [SerializeField] Texture2D[] testImages;
     [SerializeField] float dragSendInterval = 0.05f;
     [SerializeField] ImageService images;
+    [SerializeField] PlayerRoster roster;
+    [SerializeField] SessionService session;
 
     readonly List<TokenView> tokens = new List<TokenView>();
     IMovementRule rule;
@@ -199,9 +200,16 @@ public class TokenManager : MonoBehaviour, INetworkPrefabInstanceHandler
         TokenChanged?.Invoke(token);
     }
 
-    void OnHpChangeRequested(NetworkToken net, int delta)
+    void OnHpChangeRequested(NetworkToken net, int delta, ulong sender)
     {
+        if(!CanChangeHp(sender, net.View.Data)) return;
         ApplyHpChange(net.View, delta);
+    }
+
+    void OnDragPreviewRequested(NetworkToken net, Vector3 point, ulong sender)
+    {
+        if (!CanMove(sender, net.View.Data)) return;
+        net.RelayDragPreview(point);
     }
 
     void OnValidate()
@@ -256,7 +264,7 @@ public class TokenManager : MonoBehaviour, INetworkPrefabInstanceHandler
     {
         TokenView found = FindTokenAt(point);
         Select(found);
-        if (found != null) BeginDrag(found, point);
+        if (found != null && CanDragLocally(found.Data)) BeginDrag(found, point);
     }
 
     // A tecla Delete apaga o token selecionado.
@@ -311,6 +319,7 @@ public class TokenManager : MonoBehaviour, INetworkPrefabInstanceHandler
         tokens.Remove(token);
         token.Network.MoveRequested -= OnMoveRequested;
         token.Network.HpChangeRequested -= OnHpChangeRequested;
+        token.Network.DragPreviewRequested -= OnDragPreviewRequested;
         token.Network.StateChanged -= OnTokenState;
         if (selected == token) Select(null);
         if (dragged == token) dragged = null;
@@ -338,13 +347,35 @@ public class TokenManager : MonoBehaviour, INetworkPrefabInstanceHandler
     {
         view.Network.MoveRequested += OnMoveRequested;
         view.Network.HpChangeRequested += OnHpChangeRequested;
+        view.Network.DragPreviewRequested += OnDragPreviewRequested;
         view.Network.Publish(TokenState.From(view.Data));
         if (!view.Network.IsSpawned) view.Network.NetworkObject.Spawn();
     }
 
-    void OnMoveRequested(NetworkToken net, Vector3 target)
+    static TableRole RoleOf(ulong clientId) =>
+        clientId == NetworkManager.ServerClientId ? TableRole.Master : TableRole.Player;
+    
+    string PlayerIdOf(ulong clientId) =>
+        roster.TryGetPlayerId(clientId, out string playerId) ? playerId : "";
+    
+    bool CanMove(ulong clientId, TokenData data) => 
+        PermissionRules.CanMoveToken(RoleOf(clientId), PlayerIdOf(clientId), data.ownerId);
+    
+    bool CanChangeHp(ulong clientId, TokenData data) =>
+        PermissionRules.CanChangeHp(RoleOf(clientId), PlayerIdOf(clientId), data.ownerId);
+
+    bool CanDragLocally(TokenData data) =>
+        !IsClientOnly || PermissionRules.CanMoveToken(TableRole.Player, session.PlayerId, data.ownerId);
+
+    void OnMoveRequested(NetworkToken net, Vector3 target, ulong sender)
     {
         TokenView view = net.View;
+        if(!CanMove(sender, view.Data))
+        {
+            net.RejectMove(sender);
+            return;
+        }
+
         view.Data.Position = rule.Snap(target, view.Data.size);
         view.EndRemoteDrag();
         net.Publish(TokenState.From(view.Data));
@@ -409,6 +440,7 @@ public class TokenManager : MonoBehaviour, INetworkPrefabInstanceHandler
     {
         view.Network.MoveRequested -= OnMoveRequested;
         view.Network.HpChangeRequested -= OnHpChangeRequested;
+        view.Network.DragPreviewRequested -= OnDragPreviewRequested;
         view.EndRemoteDrag();
     }
 }
