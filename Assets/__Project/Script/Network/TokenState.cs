@@ -44,6 +44,7 @@ public struct TokenState : INetworkSerializable, IEquatable<TokenState>
         data.z = Z;
         data.size = Size;
         data.speed = Speed;
+        data.movedThisRound = Moved;
         data.hp = Hp;
         data.maxHp = MaxHp;
         data.imageHash = ImageHash.ToString();
