@@ -181,6 +181,15 @@ public class TokenManager : MonoBehaviour, INetworkPrefabInstanceHandler
         ApplyHpChange(token, delta);
     }
 
+    public void SetOwner(TokenView token, string ownerId)
+    {
+        if (token == null || !CanManageTokens) return;
+
+        token.Data.ownerId = ownerId ?? "";
+        if (token.Network.IsSpawned) token.Network.Publish(TokenState.From(token.Data));
+        TokenChanged?.Invoke(token);
+    }
+
     void ApplyHpChange(TokenView token, int delta)
     {
         TokenData data = token.Data;
