@@ -4,4 +4,7 @@ public static class CombatRules
 
     public static bool CanMove(bool combatActive, TableRole role, float movedThisRound, float distance, float speed) => 
         !combatActive || role == TableRole.Master || movedThisRound + distance <= speed + Tolerance;
+
+    public static bool CanUndoMove(TableRole role, bool movedByRequester) =>
+        role == TableRole.Master || movedByRequester;
 }

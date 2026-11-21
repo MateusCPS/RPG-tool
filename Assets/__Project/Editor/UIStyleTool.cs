@@ -469,9 +469,9 @@ public static class UIStyleTool
 
         RectTransform bar = FindOrCreateChild(root, "CombatBar", typeof(HorizontalLayoutGroup), typeof(CombatBar));
         Undo.RecordObject(bar, "Barra de combate");
-        bar.anchorMin = bar.anchorMax = bar.pivot = new Vector2(0.5f, 0f);
-        bar.anchoredPosition = new Vector2(0f, 16f);
-        bar.sizeDelta = new Vector2(640f, 48f);
+        bar.anchorMin = bar.anchorMax = bar.pivot = new Vector2(0.5f, 1f);
+        bar.anchoredPosition = new Vector2(0f, -12f);
+        bar.sizeDelta = new Vector2(780f, 44f);
         bar.localScale = Vector3.one;
 
         var layout = bar.GetComponent<HorizontalLayoutGroup>();
@@ -498,18 +498,23 @@ public static class UIStyleTool
         StyleButton(toggle, AccentNormal, AccentHighlighted, 44, 18, "Iniciar combate");
         Transform newRound = CreateButton(bar, "NewRoundButton", "Nova rodada");
         StyleButton(newRound, ButtonNormal, ButtonHighlighted, 44, 18, "Nova rodada");
+        Transform undo = CreateButton(bar, "UndoButton", "Desfazer");
+        StyleButton(undo, ButtonNormal, ButtonHighlighted, 44, 18, "Desfazer");
         MoveTo(status, bar, 0);
-        MoveTo(toggle, bar, 1);
-        MoveTo(newRound, bar, 2);
+        MoveTo(undo, bar, 1);
+        MoveTo(toggle, bar, 2);
+        MoveTo(newRound, bar, 3);
 
         var combatBar = bar.GetComponent<CombatBar>();
         WireClick(toggle, new UnityAction(combatBar.ToggleCombat));
         WireClick(newRound, new UnityAction(combatBar.NewRound));
+        WireClick(undo, new UnityAction(combatBar.UndoMove));
 
         SetReference(combatBar, "tokens", tokens);
         SetReference(combatBar, "statusText", statusTmp);
         SetReference(combatBar, "toggleLabel", toggle.GetComponentInChildren<TMP_Text>(true));
         SetReference(combatBar, "newRoundButton", newRound.GetComponent<Button>());
+        SetReference(combatBar, "undoButton", undo.GetComponent<Button>());
 
         AddMasterOnlyTarget(masterOnly, toggle.gameObject);
         AddMasterOnlyTarget(masterOnly, newRound.gameObject);
