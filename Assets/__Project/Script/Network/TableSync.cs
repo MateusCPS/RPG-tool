@@ -1,6 +1,7 @@
 using UnityEngine;
 using Unity.Netcode;
 using Unity.Collections;
+using Unity.VisualScripting.Antlr3.Runtime;
 
 public class TableSync : NetworkBehaviour
 {
@@ -18,6 +19,7 @@ public class TableSync : NetworkBehaviour
         if (IsServer)
         {
             tokens.ModeChanged += Publish;
+            tokens.CombatChanged += Publish;
             grid.VisibilityChanged += Publish;
             map.MapChanged += OnMapChanged;
             map.CalibrationChanged += Publish;
@@ -36,6 +38,7 @@ public class TableSync : NetworkBehaviour
         if (IsServer)
         {
             tokens.ModeChanged -= Publish;
+            tokens.CombatChanged -= Publish;
             grid.VisibilityChanged -= Publish;
             map.MapChanged -= OnMapChanged;
             map.CalibrationChanged -= Publish;
@@ -45,6 +48,7 @@ public class TableSync : NetworkBehaviour
         state.OnValueChanged -= OnStateChanged;
         appliedMapHash = null;
         map.ResetToDefault();
+        tokens.ApplyCombat(false, 0);
     }
 
     void OnMapChanged()
@@ -61,7 +65,9 @@ public class TableSync : NetworkBehaviour
             GridVisible = grid.Visible,
             PixelsPerCell = map.PixelsPerCell,
             OffsetX = map.OffsetPixels.x,
-            OffsetY = map.OffsetPixels.y
+            OffsetY = map.OffsetPixels.y,
+            CombatActive = tokens.CombatActive,
+            Round = tokens.Round
         };
         table.MapHash.CopyFromTruncated(mapHash);
         state.Value = table;
@@ -100,5 +106,6 @@ public class TableSync : NetworkBehaviour
         map.SetCalibration(table.PixelsPerCell, new Vector2(table.OffsetX, table.OffsetY));
         grid.SetVisible(table.GridVisible);
         tokens.SetMode((TokenManager.MovementMode)table.Mode);
+        tokens.ApplyCombat(table.CombatActive, table.Round);
     }
 }

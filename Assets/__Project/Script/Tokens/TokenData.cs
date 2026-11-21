@@ -13,6 +13,7 @@ public class TokenData
     public string ownerId = ""; // jogador dono (vazio = só o mestre)
     public int hp = 10, maxHp = 10;
     public string imageHash = "";
+    public float movedThisRound;
     // Atalho para ler e escrever a posição como Vector3 (no chão, Y = 0).
     public Vector3 Position
     {

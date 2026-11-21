@@ -10,6 +10,8 @@ public struct TableState : INetworkSerializable, IEquatable<TableState>
     public float OffsetX;
     public float OffsetY;
     public FixedString64Bytes MapHash;
+    public bool CombatActive;
+    public int Round;
 
     public void NetworkSerialize<T>(BufferSerializer<T> serializer) where T : IReaderWriter
     {
@@ -20,10 +22,11 @@ public struct TableState : INetworkSerializable, IEquatable<TableState>
         serializer.SerializeValue(ref OffsetX);
         serializer.SerializeValue(ref OffsetY);
         serializer.SerializeValue(ref MapHash);
+        serializer.SerializeValue(ref CombatActive);
+        serializer.SerializeValue(ref Round);
     }
 
     public bool Equals(TableState other) =>
         Mode == other.Mode && GridVisible == other.GridVisible && 
-        PixelsPerCell == other.PixelsPerCell && OffsetX == other.OffsetX && OffsetY == other.OffsetY &&
-        MapHash == other.MapHash;
+        PixelsPerCell == other.PixelsPerCell && OffsetX == other.OffsetX && OffsetY == other.OffsetY && MapHash == other.MapHash && CombatActive == other.CombatActive && Round == other.Round;
 }

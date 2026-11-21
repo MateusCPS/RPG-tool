@@ -451,6 +451,94 @@ public static class UIStyleTool
         Debug.Log("UIStyleTool: versão e relatório montados.");
     }
 
+    [MenuItem("Tools/Mesa Virtual/Montar barra de combate")]
+    static void SetupCombatBar()
+    {
+        GameObject canvasObject = GameObject.Find("Canvas");
+        var tokens = Object.FindAnyObjectByType<TokenManager>();
+        var masterOnly = Object.FindAnyObjectByType<MasterOnlyGroup>(FindObjectsInactive.Include);
+        if (canvasObject == null || tokens == null || masterOnly == null)
+        {
+            Debug.LogError("UIStyleTool: Canvas, TokenManager ou MasterOnlyGroup não encontrados.");
+            return;
+        }
+
+        Undo.SetCurrentGroupName("Montar barra de combate");
+        int group = Undo.GetCurrentGroup();
+        Transform root = canvasObject.transform;
+
+        RectTransform bar = FindOrCreateChild(root, "CombatBar", typeof(HorizontalLayoutGroup), typeof(CombatBar));
+        Undo.RecordObject(bar, "Barra de combate");
+        bar.anchorMin = bar.anchorMax = bar.pivot = new Vector2(0.5f, 0f);
+        bar.anchoredPosition = new Vector2(0f, 16f);
+        bar.sizeDelta = new Vector2(640f, 48f);
+        bar.localScale = Vector3.one;
+
+        var layout = bar.GetComponent<HorizontalLayoutGroup>();
+        Undo.RecordObject(layout, "Barra de combate");
+        layout.spacing = 10f;
+        layout.childAlignment = TextAnchor.MiddleCenter;
+        layout.childControlWidth = true;
+        layout.childControlHeight = true;
+        layout.childForceExpandWidth = false;
+        layout.childForceExpandHeight = true;
+
+        Transform status = CreateText(bar, "Status", "Combate · Rodada 1", 22, true);
+        var statusTmp = status.GetComponent<TMP_Text>();
+        Undo.RecordObject(statusTmp, "Status do combate");
+        statusTmp.alignment = TextAlignmentOptions.Center;
+        statusTmp.outlineWidth = 0.2f;
+        statusTmp.outlineColor = new Color32(0, 0, 0, 255);
+        var statusElement = status.GetComponent<LayoutElement>();
+        if (statusElement == null) statusElement = Undo.AddComponent<LayoutElement>(status.gameObject);
+        Undo.RecordObject(statusElement, "Largura do status");
+        statusElement.preferredWidth = 260f;
+
+        Transform toggle = CreateButton(bar, "CombatButton", "Iniciar combate");
+        StyleButton(toggle, AccentNormal, AccentHighlighted, 44, 18, "Iniciar combate");
+        Transform newRound = CreateButton(bar, "NewRoundButton", "Nova rodada");
+        StyleButton(newRound, ButtonNormal, ButtonHighlighted, 44, 18, "Nova rodada");
+        MoveTo(status, bar, 0);
+        MoveTo(toggle, bar, 1);
+        MoveTo(newRound, bar, 2);
+
+        var combatBar = bar.GetComponent<CombatBar>();
+        WireClick(toggle, new UnityAction(combatBar.ToggleCombat));
+        WireClick(newRound, new UnityAction(combatBar.NewRound));
+
+        SetReference(combatBar, "tokens", tokens);
+        SetReference(combatBar, "statusText", statusTmp);
+        SetReference(combatBar, "toggleLabel", toggle.GetComponentInChildren<TMP_Text>(true));
+        SetReference(combatBar, "newRoundButton", newRound.GetComponent<Button>());
+
+        AddMasterOnlyTarget(masterOnly, toggle.gameObject);
+        AddMasterOnlyTarget(masterOnly, newRound.gameObject);
+
+        Undo.CollapseUndoOperations(group);
+        EditorSceneManager.MarkSceneDirty(canvasObject.scene);
+        Debug.Log("UIStyleTool: barra de combate montada.");
+    }
+
+    static void WireClick(Transform target, UnityAction action)
+    {
+        var click = target.GetComponent<Button>();
+        Undo.RecordObject(click, "Ação do botão");
+        while (click.onClick.GetPersistentEventCount() > 0)
+            UnityEventTools.RemovePersistentListener(click.onClick, 0);
+        UnityEventTools.AddPersistentListener(click.onClick, action);
+    }
+
+    static void AddMasterOnlyTarget(MasterOnlyGroup masterOnly, GameObject target)
+    {
+        var serialized = new SerializedObject(masterOnly);
+        SerializedProperty targets = serialized.FindProperty("targets");
+        for (int i = 0; i < targets.arraySize; i++)
+            if (targets.GetArrayElementAtIndex(i).objectReferenceValue == target) return;
+        targets.arraySize++;
+        targets.GetArrayElementAtIndex(targets.arraySize - 1).objectReferenceValue = target;
+        serialized.ApplyModifiedProperties();
+    }
+
     static void WireClick(Transform target, ProblemReport report)
     {
         var click = target.GetComponent<Button>();
