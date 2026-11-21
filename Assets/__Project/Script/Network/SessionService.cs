@@ -15,6 +15,7 @@ public class SessionService : MonoBehaviour
     [SerializeField] int maxNameLength = 20;
     [SerializeField] int reconnectAttempts = 5;
     [SerializeField] float reconnectDelay = 3f;
+    [SerializeField] int maxVersionBytes = 32;
 
     ISession session;
     string joinedCode;
@@ -34,11 +35,40 @@ public class SessionService : MonoBehaviour
     void OnEnable()
     {
         network.OnClientStopped += OnClientStopped;
+        network.NetworkConfig.ConnectionApproval = true;
+        network.NetworkConfig.ConnectionData = AppVersion.Payload();
+        network.ConnectionApprovalCallback = ApproveConnection;
     }
 
     void OnDisable()
     {
         network.OnClientStopped -= OnClientStopped;
+        network.ConnectionApprovalCallback = null;
+    }
+
+    void ApproveConnection(NetworkManager.ConnectionApprovalRequest request, NetworkManager.ConnectionApprovalResponse response)
+    {
+        response.CreatePlayerObject = false;
+        if (request.ClientNetworkId == NetworkManager.ServerClientId)
+        {
+            response.Approved = true;
+            return;
+        }
+
+        string clientVersion = AppVersion.ReadPayload(request.Payload, maxVersionBytes);
+        response.Approved = AppVersion.IsCompatible(clientVersion, AppVersion.Current);
+        if (!response.Approved)
+        {
+            string shown = clientVersion.Length > 0 ? clientVersion : "antiga";
+            response.Reason = $"{AppVersion.RejectPrefix}Sua versão é {shown} e a do mestre é {AppVersion.Current}. Atualize o jogo.";
+        }
+    }
+
+    string VersionRejection()
+    {
+        string reason = network.DisconnectReason;
+        if (string.IsNullOrEmpty(reason) || !reason.StartsWith(AppVersion.RejectPrefix)) return null;
+        return reason.Substring(AppVersion.RejectPrefix.Length);
     }
 
     async void Start() 
@@ -101,7 +131,7 @@ public class SessionService : MonoBehaviour
         catch (Exception e)
         {
             Debug.LogException(e);
-            EndWithError(JoinErrorMessage(e));
+            EndWithError(IsRoomGone(e) ? JoinErrorMessage(e) : VersionRejection() ?? JoinErrorMessage(e));
         }
     }
 
@@ -222,6 +252,15 @@ public class SessionService : MonoBehaviour
             {
                 Debug.LogWarning($"Tentativa {attempt} de reconexão falhou: {e.Message}");
                 if (run != reconnectRun) return;
+
+                string rejection = VersionRejection();
+                if (rejection != null)
+                {
+                    Error = rejection;
+                    SetState(SessionState.Ready);
+                    return;
+                }
+
                 if (IsRoomGone(e))
                 {
                     Error = "A sala foi fechada pelo mestre.";

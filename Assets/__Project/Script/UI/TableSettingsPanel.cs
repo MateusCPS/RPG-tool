@@ -1,5 +1,6 @@
 using TMPro;
 using UnityEngine;
+using UnityEngine.InputSystem;
 
 // Painel de configurações da mesa: modo de movimento, grade visível e calibração do mapa.
 // Como o painel de vida, o script fica num objeto sempre ligado e só liga/desliga o "panel".
@@ -16,9 +17,30 @@ public class TableSettingsPanel : MonoBehaviour
     [SerializeField] TMP_Text pixelsLabel; // "Pixels por quadrado: 70"
     [SerializeField] TMP_Text offsetLabel; // "Deslocamento: 0, 0"
 
-    void OnEnable() => tokens.PermissionsChanged += OnPermissionsChanged;
+    InputAction closeAction;
 
-    void OnDisable() => tokens.PermissionsChanged -= OnPermissionsChanged;
+    void Awake()
+    {
+        closeAction = new InputAction("Fechar", binding: "<Keyboard>/escape");
+    }
+
+    void OnEnable()
+    {
+        tokens.PermissionsChanged += OnPermissionsChanged;
+        closeAction.performed += OnClosePressed;
+        closeAction.Enable();
+    }
+
+    void OnDisable()
+    {
+        tokens.PermissionsChanged -= OnPermissionsChanged;
+        closeAction.performed -= OnClosePressed;
+        closeAction.Disable();
+    }
+
+    void OnDestroy() => closeAction.Dispose();
+
+    void OnClosePressed(InputAction.CallbackContext _) => panel.SetActive(false);
 
     void Start()
     {
