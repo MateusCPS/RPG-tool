@@ -31,6 +31,21 @@ public class TokenManager : MonoBehaviour, INetworkPrefabInstanceHandler
     Vector3 dragStart;
     Vector3 lastSentDrag;
     float nextDragSend;
+    bool combatActive;
+    int round;
+
+    struct MoveRecord
+    {
+        public TokenView Token;
+        public Vector3 From;
+        public float Distance;
+        public string MoverId;
+    }
+
+    readonly List<MoveRecord> moveHistory = new List<MoveRecord>();
+    TokenView lastMoved;
+    public bool CombatActive => combatActive;
+    public int Round => round;
     public bool IsDragging => dragged != null;
     public TokenView Dragged => dragged;
     public TokenView Selected => selected;
@@ -43,14 +58,14 @@ public class TokenManager : MonoBehaviour, INetworkPrefabInstanceHandler
     public event Action SelectionChanged;
     public event Action ModeChanged;
     public event Action PermissionsChanged;
-    
+    public event Action CombatChanged;
     public event Action<TokenView> TokenChanged;
     public bool CanManageTokens => !IsClientOnly;
 
     static readonly Plane TablePlane = new Plane(Vector3.up, Vector3.zero);
 
-    public enum MovementMode { Grip, Free }
-    public MovementMode Mode => mode; // o modo atual, para a interface mostrar
+    public enum MovementMode { Grip = 0, Free = 1 }
+    public MovementMode Mode => mode; 
 
     [Header("Modo de movimento")]
     [SerializeField] MovementMode mode = MovementMode.Grip;
@@ -172,6 +187,52 @@ public class TokenManager : MonoBehaviour, INetworkPrefabInstanceHandler
         ModeChanged?.Invoke();
     }
 
+    public void SetCombat(bool active)
+    {
+        if (IsClientOnly) return;
+        combatActive = active;
+        round = active ? 1 : 0;
+        ResetMovement();
+        CombatChanged?.Invoke();
+    }
+
+    public void NewRound()
+    {
+        if (IsClientOnly || !combatActive) return;
+        round++;
+        ResetMovement();
+        CombatChanged?.Invoke();
+    }
+
+    public void ApplyCombat(bool active, int newRound)
+    {
+        if (combatActive == active && round == newRound) return;
+        combatActive = active;
+        round = newRound;
+        CombatChanged?.Invoke();
+    }
+
+    void ResetMovement()
+    {
+        moveHistory.Clear();
+        foreach (TokenView token in tokens)
+        {
+            token.Data.movedThisRound = 0f;
+            if (network.IsServer && token.Network.IsSpawned)
+                token.Network.Publish(TokenState.From(token.Data));
+        }
+    }
+
+    void AddMovement(TokenView token, Vector3 from, float distance, string moverId)
+    {
+        if (!combatActive || distance <= 0f) return;
+        token.Data.movedThisRound += distance;
+        moveHistory.Add(new MoveRecord { Token = token, From = from, Distance = distance, MoverId = moverId });
+    }
+
+    bool CanTravel(ulong clientId, TokenData data, float distance) =>
+        CombatRules.CanMove(combatActive, RoleOf(clientId), data.movedThisRound, distance, data.speed);
+
     public void ChangeHp(TokenView token, int delta)
     {
         if (token == null || delta == 0) return;
@@ -234,6 +295,7 @@ public class TokenManager : MonoBehaviour, INetworkPrefabInstanceHandler
     void LateUpdate()
     {
         HandleDeleteKey();
+        HandleUndoKey();
 
         Pointer device = Pointer.current;
         if (device == null || rule == null) return;
@@ -274,13 +336,21 @@ public class TokenManager : MonoBehaviour, INetworkPrefabInstanceHandler
     void HandleDeleteKey()
     {
         Keyboard keyboard = Keyboard.current;
-        if (keyboard == null || !keyboard.deleteKey.wasPressedThisFrame) return;
-
-        // Se a pessoa estiver digitando num campo de texto, o Delete é para o texto, não para o token.
-        GameObject focused = EventSystem.current != null ? EventSystem.current.currentSelectedGameObject : null;
-        if (focused != null && focused.GetComponent<TMP_InputField>() != null) return;
-
+        if (keyboard == null || !keyboard.deleteKey.wasPressedThisFrame || IsTyping()) return;
         DeleteSelected();
+    }
+
+    void HandleUndoKey()
+    {
+        Keyboard keyboard = Keyboard.current;
+        if (keyboard == null || !keyboard.zKey.wasPressedThisFrame || !keyboard.ctrlKey.isPressed || IsTyping()) return;
+        UndoLastMove();
+    }
+
+    static bool IsTyping()
+    {
+        GameObject focused = EventSystem.current != null ? EventSystem.current.currentSelectedGameObject : null;
+        return focused != null && focused.GetComponent<TMP_InputField>() != null;
     }
 
     void BeginDrag(TokenView token, Vector3 point)
@@ -295,13 +365,21 @@ public class TokenManager : MonoBehaviour, INetworkPrefabInstanceHandler
     void EndDrag()
     {
         Vector3 dropped = dragged.transform.position;
-        dragged.Data.Position = rule.Snap(dropped, dragged.Data.size);
+        Vector3 snapped = rule.Snap(dropped, dragged.Data.size);
 
         if (IsClientOnly)
-            dragged.Network.RequestMove(dragged.Data.Position);
-        else if (dragged.Network.IsSpawned)
-            dragged.Network.Publish(TokenState.From(dragged.Data));
+        {
+            dragged.Data.Position = snapped;
+            dragged.Network.RequestMove(snapped);
+        }
+        else
+        {
+            AddMovement(dragged, dragged.Data.Position, rule.MeasureDistance(dragged.Data.Position, snapped), session.PlayerId);
+            dragged.Data.Position = snapped;
+            if (dragged.Network.IsSpawned) dragged.Network.Publish(TokenState.From(dragged.Data));
+        }
 
+        lastMoved = dragged;
         dragged.SetDragging(false);
         dragged = null;
     }
@@ -324,8 +402,12 @@ public class TokenManager : MonoBehaviour, INetworkPrefabInstanceHandler
         token.Network.HpChangeRequested -= OnHpChangeRequested;
         token.Network.DragPreviewRequested -= OnDragPreviewRequested;
         token.Network.StateChanged -= OnTokenState;
+        token.Network.UndoMoveRequested -= OnUndoMoveRequested;
         if (selected == token) Select(null);
         if (dragged == token) dragged = null;
+        if (lastMoved == token) lastMoved = null;
+        for (int i = moveHistory.Count - 1; i >= 0; i--)
+            if (moveHistory[i].Token == token) moveHistory.RemoveAt(i);
     }
 
     void OnServerStarted()
@@ -353,6 +435,7 @@ public class TokenManager : MonoBehaviour, INetworkPrefabInstanceHandler
         view.Network.MoveRequested += OnMoveRequested;
         view.Network.HpChangeRequested += OnHpChangeRequested;
         view.Network.DragPreviewRequested += OnDragPreviewRequested;
+        view.Network.UndoMoveRequested += OnUndoMoveRequested;
         view.Network.Publish(TokenState.From(view.Data));
         if (!view.Network.IsSpawned) view.Network.NetworkObject.Spawn();
     }
@@ -377,16 +460,58 @@ public class TokenManager : MonoBehaviour, INetworkPrefabInstanceHandler
     void OnMoveRequested(NetworkToken net, Vector3 target, ulong sender)
     {
         TokenView view = net.View;
-        if(!CanMove(sender, view.Data))
+        Vector3 snapped = rule.Snap(target, view.Data.size);
+        float distance = rule.MeasureDistance(view.Data.Position, snapped);
+
+        if(!CanMove(sender, view.Data) || !CanTravel(sender, view.Data, distance))
         {
             net.RejectMove(sender);
             return;
         }
 
-        view.Data.Position = rule.Snap(target, view.Data.size);
+        AddMovement(view, view.Data.Position, distance, PlayerIdOf(sender));
+        view.Data.Position = snapped;
         view.EndRemoteDrag();
         net.Publish(TokenState.From(view.Data));
         TokenChanged?.Invoke(view);
+    }
+
+    public void UndoLastMove()
+    {
+        if (lastMoved == null || dragged != null || !combatActive) return;
+
+        if (IsClientOnly)
+        {
+            lastMoved.Network.RequestUndoMove();
+            return;
+        }
+
+        TryUndoMove(lastMoved, NetworkManager.ServerClientId);
+    }
+
+    void OnUndoMoveRequested(NetworkToken net, ulong sender) => TryUndoMove(net.View, sender);
+
+    void TryUndoMove(TokenView token, ulong clientId)
+    {
+        int index = LastMoveOf(token);
+        if (index < 0 || !CanMove(clientId, token.Data)) return;
+
+        MoveRecord record = moveHistory[index];
+        if (!CombatRules.CanUndoMove(RoleOf(clientId), record.MoverId == PlayerIdOf(clientId))) return;
+
+        moveHistory.RemoveAt(index);
+        token.Data.Position = record.From;
+        token.Data.movedThisRound = Mathf.Max(0f, token.Data.movedThisRound - record.Distance);
+        token.Refresh();
+        if (token.Network.IsSpawned) token.Network.Publish(TokenState.From(token.Data));
+        TokenChanged?.Invoke(token);
+    }
+
+    int LastMoveOf(TokenView token)
+    {
+        for (int i = moveHistory.Count - 1; i >= 0; i--)
+            if (moveHistory[i].Token == token) return i;
+        return -1;
     }
 
     void OnTokenState(NetworkToken net)
@@ -448,6 +573,7 @@ public class TokenManager : MonoBehaviour, INetworkPrefabInstanceHandler
         view.Network.MoveRequested -= OnMoveRequested;
         view.Network.HpChangeRequested -= OnHpChangeRequested;
         view.Network.DragPreviewRequested -= OnDragPreviewRequested;
+        view.Network.UndoMoveRequested -= OnUndoMoveRequested;
         view.EndRemoteDrag();
     }
 }

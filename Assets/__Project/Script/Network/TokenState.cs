@@ -13,6 +13,7 @@ public struct TokenState : INetworkSerializable, IEquatable<TokenState>
     public float Z;
     public int Size;
     public float Speed;
+    public float Moved;
     public int Hp;
     public int MaxHp;
 
@@ -24,6 +25,7 @@ public struct TokenState : INetworkSerializable, IEquatable<TokenState>
             Z = data.z,
             Size = data.size,
             Speed = data.speed,
+            Moved = data.movedThisRound,
             Hp = data.hp,
             MaxHp = data.maxHp
         };
@@ -42,6 +44,7 @@ public struct TokenState : INetworkSerializable, IEquatable<TokenState>
         data.z = Z;
         data.size = Size;
         data.speed = Speed;
+        data.movedThisRound = Moved;
         data.hp = Hp;
         data.maxHp = MaxHp;
         data.imageHash = ImageHash.ToString();
@@ -56,6 +59,7 @@ public struct TokenState : INetworkSerializable, IEquatable<TokenState>
         serializer.SerializeValue(ref Z);
         serializer.SerializeValue(ref Size);
         serializer.SerializeValue(ref Speed);
+        serializer.SerializeValue(ref Moved);
         serializer.SerializeValue(ref Hp);
         serializer.SerializeValue(ref MaxHp);
         serializer.SerializeValue(ref ImageHash);
@@ -64,5 +68,5 @@ public struct TokenState : INetworkSerializable, IEquatable<TokenState>
 
     public bool Equals(TokenState other) =>
         Id == other.Id && Name == other.Name && X == other.X && Z == other.Z &&
-        Size == other.Size && Speed == other.Speed && Hp == other.Hp && MaxHp == other.MaxHp && ImageHash == other.ImageHash && OwnerId == other.OwnerId;
+        Size == other.Size && Speed == other.Speed && Hp == other.Hp && MaxHp == other.MaxHp && ImageHash == other.ImageHash && OwnerId == other.OwnerId && Moved == other.Moved;
 }

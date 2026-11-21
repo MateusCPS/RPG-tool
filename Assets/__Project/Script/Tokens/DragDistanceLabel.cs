@@ -39,6 +39,7 @@ public class DragDistanceLabel : MonoBehaviour
         // Mede até onde o token VAI CAIR (encaixado), não até a posição livre do mouse.
         Vector3 snapped = rule.Snap(token.transform.position, token.Data.size);
         float distance = rule.MeasureDistance(tokens.DragStart, snapped);
+        if (tokens.CombatActive) distance += token.Data.movedThisRound;
         float speed = token.Data.speed;
 
         int distanceTenths = Mathf.RoundToInt(distance * 10f);
