@@ -8259,6 +8259,7 @@ GameObject:
   - component: {fileID: 909428807}
   - component: {fileID: 909428806}
   - component: {fileID: 909428805}
+  - component: {fileID: 909428808}
   m_Layer: 5
   m_Name: Toolbar
   m_TagString: Untagged
@@ -8356,6 +8357,24 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 909428803}
   m_CullTransparentMesh: 1
+--- !u!114 &909428808
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 909428803}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e1f3bed04cad7954d9c3e1ecdcc0193f, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::MasterOnlyGroup
+  tokens: {fileID: 426688555}
+  targets:
+  - {fileID: 623215930}
+  - {fileID: 2090279860}
+  - {fileID: 2145320633}
+  - {fileID: 1896173359}
 --- !u!1 &933178976
 GameObject:
   m_ObjectHideFlags: 0
@@ -13307,6 +13326,9 @@ MonoBehaviour:
   ownerText: {fileID: 1571132169}
   ownerDropdown: {fileID: 465619569}
   amountField: {fileID: 1827618057}
+  hpControls:
+  - {fileID: 1827618056}
+  - {fileID: 1747102018}
 --- !u!1 &1441814435
 GameObject:
   m_ObjectHideFlags: 0

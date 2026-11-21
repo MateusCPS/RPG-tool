@@ -14,6 +14,7 @@ public class TokenInfoPanel : MonoBehaviour
     [SerializeField] TMP_Text ownerText;
     [SerializeField] TMP_Dropdown ownerDropdown;
     [SerializeField] TMP_InputField amountField;
+    [SerializeField] GameObject[] hpControls;
 
     readonly List<string> ownerOptions = new List<string>();
     readonly List<string> optionLabels = new List<string>();
@@ -56,6 +57,9 @@ public class TokenInfoPanel : MonoBehaviour
         TokenData data = token.Data;
         nameText.text = data.displayName;
         hpText.text = $"Vida: {data.hp} / {data.maxHp}";
+        bool canEditHp = tokens.CanEditHpLocally(data);
+        foreach(GameObject control in hpControls)
+            control.SetActive(canEditHp);
 
         string ownerName = roster.NameOf(data.ownerId);
         ownerText.text = string.IsNullOrEmpty(data.ownerId) ? "Sem dono"

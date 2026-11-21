@@ -60,6 +60,7 @@ public class TokenManager : MonoBehaviour, INetworkPrefabInstanceHandler
         if (map != null) map.MapChanged += OnMapChanged;
         network.OnServerStarted += OnServerStarted;
         network.OnClientStarted += OnClientStarted;
+        network.OnClientStopped += OnClientStopped;
     }
 
     void OnDisable()
@@ -67,6 +68,8 @@ public class TokenManager : MonoBehaviour, INetworkPrefabInstanceHandler
         if (map != null) map.MapChanged -= OnMapChanged;
         network.OnServerStarted -= OnServerStarted;
         network.OnClientStarted -= OnClientStarted;
+        network.OnClientStopped -= OnClientStopped;
+
     }
 
     // Com um mapa novo, reaplica a regra para encaixar e prender os tokens na grade nova.
@@ -343,6 +346,8 @@ public class TokenManager : MonoBehaviour, INetworkPrefabInstanceHandler
         }
     }
 
+    void OnClientStopped(bool wasHost) => PermissionsChanged?.Invoke();
+
     void SpawnOnNetwork(TokenView view)
     {
         view.Network.MoveRequested += OnMoveRequested;
@@ -367,6 +372,8 @@ public class TokenManager : MonoBehaviour, INetworkPrefabInstanceHandler
     bool CanDragLocally(TokenData data) =>
         !IsClientOnly || PermissionRules.CanMoveToken(TableRole.Player, session.PlayerId, data.ownerId);
 
+    public bool CanEditHpLocally(TokenData data) =>
+        !IsClientOnly || PermissionRules.CanChangeHp(TableRole.Player, session.PlayerId, data.ownerId);
     void OnMoveRequested(NetworkToken net, Vector3 target, ulong sender)
     {
         TokenView view = net.View;
