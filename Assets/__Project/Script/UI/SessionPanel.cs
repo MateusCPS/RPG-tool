@@ -14,21 +14,27 @@ public class SessionPanel : MonoBehaviour
     [SerializeField] Button cancelButton;
     [SerializeField] TMP_Text statusText;
     [SerializeField] TMP_Text roomCodeText;
+    [SerializeField] TMP_Text versionText;
 
     void OnEnable()
     {
         session.Changed += Refresh;
+        codeField.onSubmit.AddListener(OnCodeSubmit);
     }
 
     void OnDisable()
     {
         session.Changed -= Refresh;
+        codeField.onSubmit.RemoveListener(OnCodeSubmit);
     }
 
     void Start()
     {
+        versionText.text = $"v{AppVersion.Current}";
         Refresh();
     }
+
+    void OnCodeSubmit(string _) => JoinRoom();
 
     public void CreateRoom()
     {

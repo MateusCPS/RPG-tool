@@ -375,6 +375,91 @@ public static class UIStyleTool
         Debug.Log("UIStyleTool: botão de cancelar reconexão montado.");
     }
 
+    [MenuItem("Tools/Mesa Virtual/Montar versão e relatório")]
+    static void SetupVersionReport()
+    {
+        GameObject canvasObject = GameObject.Find("Canvas");
+        var session = Object.FindAnyObjectByType<SessionService>();
+        var sessionPanel = Object.FindAnyObjectByType<SessionPanel>(FindObjectsInactive.Include);
+        var roster = Object.FindAnyObjectByType<PlayerRoster>(FindObjectsInactive.Include);
+        var window = sessionPanel != null
+            ? new SerializedObject(sessionPanel).FindProperty("window").objectReferenceValue as GameObject
+            : null;
+        Transform row = window != null ? Find(window.transform, "ButtonsRow") : null;
+        if (canvasObject == null || session == null || roster == null || row == null)
+        {
+            Debug.LogError("UIStyleTool: Canvas, SessionService, PlayerRoster ou a janela de sala não encontrados.");
+            return;
+        }
+
+        Undo.SetCurrentGroupName("Montar versão e relatório");
+        int group = Undo.GetCurrentGroup();
+        Transform root = canvasObject.transform;
+        Transform sessionWindow = row.parent;
+
+        GameObject controller = GameObject.Find("ReportController");
+        if (controller == null)
+        {
+            controller = new GameObject("ReportController");
+            Undo.RegisterCreatedObjectUndo(controller, "Criar ReportController");
+        }
+        var log = controller.GetComponent<LogRecorder>();
+        if (log == null) log = Undo.AddComponent<LogRecorder>(controller);
+        var report = controller.GetComponent<ProblemReport>();
+        if (report == null) report = Undo.AddComponent<ProblemReport>(controller);
+
+        Transform windowReport = CreateButton(sessionWindow, "RelatorioSala", "Copiar relatório");
+        StyleButton(windowReport, ButtonNormal, ButtonHighlighted, 36, 16, "Copiar relatório");
+        MoveTo(windowReport, sessionWindow, sessionWindow.childCount - 1);
+        WireClick(windowReport, report);
+
+        Transform version = CreateText(sessionWindow, "VersionText", "v0.0.0", 14, false);
+        var versionTmp = version.GetComponent<TMP_Text>();
+        Undo.RecordObject(versionTmp, "Versão");
+        versionTmp.alignment = TextAlignmentOptions.Center;
+        versionTmp.color = PlaceholderColor;
+        MoveTo(version, sessionWindow, sessionWindow.childCount - 1);
+        SetReference(sessionPanel, "versionText", versionTmp);
+
+        RectTransform toolbar = FindOrCreateToolbar(root);
+        Transform toolbarReport = CreateButton(toolbar, "RelatorioMesa", "Copiar relatório");
+        StyleButton(toolbarReport, ButtonNormal, ButtonHighlighted, 40, 16, "Copiar relatório");
+        Transform leave = toolbar.Find("LeaveRoom");
+        MoveTo(toolbarReport, toolbar, leave != null ? leave.GetSiblingIndex() : toolbar.childCount - 1);
+        WireClick(toolbarReport, report);
+
+        Transform feedback = CreateText(root, "ReportFeedback", "", 20, true);
+        var feedbackRect = (RectTransform)feedback;
+        Undo.RecordObject(feedbackRect, "Aviso do relatório");
+        feedbackRect.anchorMin = feedbackRect.anchorMax = feedbackRect.pivot = new Vector2(0.5f, 1f);
+        feedbackRect.anchoredPosition = new Vector2(0f, -60f);
+        feedbackRect.sizeDelta = new Vector2(700f, 36f);
+        feedbackRect.localScale = Vector3.one;
+        var feedbackTmp = feedback.GetComponent<TMP_Text>();
+        Undo.RecordObject(feedbackTmp, "Aviso do relatório");
+        feedbackTmp.alignment = TextAlignmentOptions.Center;
+        feedbackTmp.outlineWidth = 0.2f;
+        feedbackTmp.outlineColor = new Color32(0, 0, 0, 255);
+
+        SetReference(report, "log", log);
+        SetReference(report, "session", session);
+        SetReference(report, "roster", roster);
+        SetReference(report, "feedbackText", feedbackTmp);
+
+        Undo.CollapseUndoOperations(group);
+        EditorSceneManager.MarkSceneDirty(canvasObject.scene);
+        Debug.Log("UIStyleTool: versão e relatório montados.");
+    }
+
+    static void WireClick(Transform target, ProblemReport report)
+    {
+        var click = target.GetComponent<Button>();
+        Undo.RecordObject(click, "Ação do botão");
+        while (click.onClick.GetPersistentEventCount() > 0)
+            UnityEventTools.RemovePersistentListener(click.onClick, 0);
+        UnityEventTools.AddPersistentListener(click.onClick, new UnityAction(report.Copy));
+    }
+
     static void SetReference(Object target, string field, Object value)
     {
         var serialized = new SerializedObject(target);

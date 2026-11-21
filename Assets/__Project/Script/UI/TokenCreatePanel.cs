@@ -2,6 +2,7 @@ using UnityEngine;
 using TMPro;
 using UnityEngine.UI;
 using System.Collections.Generic;
+using UnityEngine.InputSystem;
 
 public class TokenCreatePanel : MonoBehaviour
 {
@@ -15,6 +16,7 @@ public class TokenCreatePanel : MonoBehaviour
 
     Texture2D chosenImage;
     byte[] chosenBytes;
+    InputAction closeAction;
 
     void Awake() 
     {
@@ -24,11 +26,30 @@ public class TokenCreatePanel : MonoBehaviour
             "1x1 (Médio)", "2x2 (Grande)", "3x3 (Enorme)", "4x4 (Imenso)"
         });
         hpField.contentType = TMP_InputField.ContentType.IntegerNumber;    
+        closeAction = new InputAction("Fechar", binding: "<Keyboard>/escape");
     }
 
-    void OnEnable() => tokens.PermissionsChanged += OnPermissionsChanged;
+    void OnEnable()
+    {
+        tokens.PermissionsChanged += OnPermissionsChanged;
+        nameField.onSubmit.AddListener(OnNameSubmit);
+        closeAction.performed += OnClosePressed;
+        closeAction.Enable();
+    }
 
-    void OnDisable() => tokens.PermissionsChanged -= OnPermissionsChanged;
+    void OnDisable()
+    {
+        tokens.PermissionsChanged -= OnPermissionsChanged;
+        nameField.onSubmit.RemoveListener(OnNameSubmit);
+        closeAction.performed -= OnClosePressed;
+        closeAction.Disable();
+    }
+
+    void OnDestroy() => closeAction.Dispose();
+
+    void OnNameSubmit(string _) => Create();
+
+    void OnClosePressed(InputAction.CallbackContext _) => Close();
 
     void OnPermissionsChanged()
     {
