@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using Unity.Netcode;
 using System;
 using Unity.Collections;
+using Unity.Services.Lobbies.Models;
 
 
 public class PlayerRoster : NetworkBehaviour
@@ -54,6 +55,7 @@ public class PlayerRoster : NetworkBehaviour
         playerIds[clientId] = playerId;
         var entry = new PlayerEntry { ClientId = clientId };
         entry.Name.CopyFromTruncated(UniqueName(CleanName(playerName)));
+        entry.PlayerId.CopyFromTruncated(playerId);
         players.Add(entry);
     }
 
@@ -86,6 +88,17 @@ public class PlayerRoster : NetworkBehaviour
             NetworkManager.DisconnectClient(previousClient);
         return true;
     }
+
+    public string NameOf(string playerId)
+    {
+        if (string.IsNullOrEmpty(playerId)) return "";
+        for (int i = 0; i < players.Count; i++)
+            if(players[i].PlayerId.ToString() == playerId) return players[i].Name.ToString();
+        return "";
+    }
+
+    public bool TryGetPlayerId(ulong clientId, out string playerId) => 
+        playerIds.TryGetValue(clientId, out playerId);
 
     void OnClientDisconnected(ulong clientId)
     {
