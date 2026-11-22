@@ -703,17 +703,24 @@ public static class UIStyleTool
         slider.minValue = 0f;
         slider.maxValue = 1f;
         slider.wholeNumbers = false;
-        TintImage(target.Find("Background"), InputColor);
-        TintImage(target.Find("Fill Area/Fill"), AccentNormal);
-        TintImage(target.Find("Handle Slide Area/Handle"), TextColor);
+
+        Sprite track = AssetDatabase.GetBuiltinExtraResource<Sprite>("UI/Skin/Background.psd");
+        Sprite fill = AssetDatabase.GetBuiltinExtraResource<Sprite>("UI/Skin/UISprite.psd");
+        Sprite knob = AssetDatabase.GetBuiltinExtraResource<Sprite>("UI/Skin/Knob.psd");
+
+        TintImage(target.Find("Background"), ButtonHighlighted, track);
+        TintImage(target.Find("Fill Area/Fill"), AccentNormal, fill);
+        TintImage(target.Find("Handle Slide Area/Handle"), TextColor, knob);
     }
 
-    static void TintImage(Transform target, Color color)
+    static void TintImage(Transform target, Color color, Sprite sprite)
     {
         if (target == null) return;
         var image = target.GetComponent<Image>();
         if (image == null) return;
         Undo.RecordObject(image, "Cor");
+        image.sprite = sprite;
+        image.type = Image.Type.Sliced;
         image.color = color;
     }
 
