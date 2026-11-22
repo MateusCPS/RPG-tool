@@ -524,6 +524,208 @@ public static class UIStyleTool
         Debug.Log("UIStyleTool: barra de combate montada.");
     }
 
+    [MenuItem("Tools/Mesa Virtual/Montar painel de música")]
+    static void SetupMusic()
+    {
+        GameObject canvasObject = GameObject.Find("Canvas");
+        var tableSync = Object.FindAnyObjectByType<TableSync>(FindObjectsInactive.Include);
+        var network = Object.FindAnyObjectByType<Unity.Netcode.NetworkManager>(FindObjectsInactive.Include);
+        var masterOnly = Object.FindAnyObjectByType<MasterOnlyGroup>(FindObjectsInactive.Include);
+        if (canvasObject == null || tableSync == null || network == null || masterOnly == null)
+        {
+            Debug.LogError("UIStyleTool: Canvas, TableSync, NetworkManager ou MasterOnlyGroup não encontrados.");
+            return;
+        }
+
+        Undo.SetCurrentGroupName("Montar painel de música");
+        int group = Undo.GetCurrentGroup();
+        Transform root = canvasObject.transform;
+
+        MusicLibrary library = FindOrCreateMusicLibrary();
+
+        GameObject playerObject = GameObject.Find("MusicPlayer");
+        if (playerObject == null)
+        {
+            playerObject = new GameObject("MusicPlayer");
+            Undo.RegisterCreatedObjectUndo(playerObject, "Criar MusicPlayer");
+        }
+        AudioSource[] sources = playerObject.GetComponents<AudioSource>();
+        AudioSource sourceA = sources.Length > 0 ? sources[0] : Undo.AddComponent<AudioSource>(playerObject);
+        AudioSource sourceB = sources.Length > 1 ? sources[1] : Undo.AddComponent<AudioSource>(playerObject);
+        SetupMusicSource(sourceA);
+        SetupMusicSource(sourceB);
+        var player = playerObject.GetComponent<MusicPlayer>();
+        if (player == null) player = Undo.AddComponent<MusicPlayer>(playerObject);
+        SetReference(player, "sourceA", sourceA);
+        SetReference(player, "sourceB", sourceB);
+
+        var sync = tableSync.GetComponent<MusicSync>();
+        if (sync == null) sync = Undo.AddComponent<MusicSync>(tableSync.gameObject);
+        SetReference(sync, "player", player);
+        SetReference(sync, "library", library);
+        SetReference(sync, "network", network);
+
+        RectTransform musicRoot = FindOrCreateChild(root, "Music", typeof(MusicPanel));
+        StretchToCanvas(musicRoot);
+        var musicPanel = musicRoot.GetComponent<MusicPanel>();
+
+        RectTransform window = FindOrCreateChild(musicRoot, "MusicWindow", typeof(Image), typeof(VerticalLayoutGroup), typeof(ContentSizeFitter));
+        StylePanel(window);
+        PlaceInCorner(window, new Vector2(1f, 0f), new Vector2(-16f, 16f), 300f);
+        var windowLayout = window.GetComponent<VerticalLayoutGroup>();
+        Undo.RecordObject(windowLayout, "Painel de música");
+        windowLayout.childControlWidth = true;
+        windowLayout.childControlHeight = true;
+        windowLayout.childForceExpandWidth = true;
+        windowLayout.childForceExpandHeight = false;
+        var fitter = window.GetComponent<ContentSizeFitter>();
+        Undo.RecordObject(fitter, "Painel de música");
+        fitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+
+        Transform nowPlaying = CreateText(window, "NowPlaying", "Sem música", 18, true);
+
+        RectTransform controls = FindOrCreateChild(window, "MasterControls", typeof(VerticalLayoutGroup));
+        var controlsLayout = controls.GetComponent<VerticalLayoutGroup>();
+        Undo.RecordObject(controlsLayout, "Controles do mestre");
+        controlsLayout.spacing = 8f;
+        controlsLayout.childControlWidth = true;
+        controlsLayout.childControlHeight = true;
+        controlsLayout.childForceExpandWidth = true;
+        controlsLayout.childForceExpandHeight = false;
+
+        RectTransform situations = FindOrCreateChild(controls, "Situations", typeof(GridLayoutGroup));
+        var grid = situations.GetComponent<GridLayoutGroup>();
+        Undo.RecordObject(grid, "Situações");
+        grid.cellSize = new Vector2(128f, 40f);
+        grid.spacing = new Vector2(8f, 8f);
+        grid.constraint = GridLayoutGroup.Constraint.FixedColumnCount;
+        grid.constraintCount = 2;
+        for (int i = 0; i < MusicPanel.SituationNames.Length; i++)
+        {
+            Transform button = CreateButton(situations, "Situation" + i, MusicPanel.SituationNames[i]);
+            StyleButton(button, ButtonNormal, ButtonHighlighted, 40, 15, MusicPanel.SituationNames[i]);
+            WireIntClick(button, new UnityAction<int>(musicPanel.PlaySituation), i);
+        }
+
+        RectTransform row = FindOrCreateChild(controls, "Row", typeof(HorizontalLayoutGroup));
+        var rowLayout = row.GetComponent<HorizontalLayoutGroup>();
+        Undo.RecordObject(rowLayout, "Linha de controles");
+        rowLayout.spacing = 8f;
+        rowLayout.childControlWidth = true;
+        rowLayout.childControlHeight = true;
+        rowLayout.childForceExpandWidth = false;
+        rowLayout.childForceExpandHeight = false;
+        Transform mode = CreateButton(row, "ModeButton", "Modo: repetir");
+        Transform next = CreateButton(row, "NextButton", "Próxima");
+        Transform stop = CreateButton(row, "StopButton", "Parar");
+        StyleButton(mode, ButtonNormal, ButtonHighlighted, 40, 14, null);
+        StyleButton(next, ButtonNormal, ButtonHighlighted, 40, 15, "Próxima");
+        StyleButton(stop, DamageNormal, DamageHighlighted, 40, 15, "Parar");
+        WireClick(mode, new UnityAction(musicPanel.CycleMode));
+        WireClick(next, new UnityAction(musicPanel.Next));
+        WireClick(stop, new UnityAction(musicPanel.Stop));
+
+        Transform volumeLabel = CreateText(window, "VolumeLabel", "Volume", 16, false);
+        Transform volume = window.Find("Volume");
+        if (volume == null)
+        {
+            GameObject sliderObject = DefaultControls.CreateSlider(new DefaultControls.Resources());
+            Undo.RegisterCreatedObjectUndo(sliderObject, "Criar volume");
+            sliderObject.name = "Volume";
+            foreach (Transform part in sliderObject.GetComponentsInChildren<Transform>(true))
+                part.gameObject.layer = window.gameObject.layer;
+            volume = sliderObject.transform;
+            volume.SetParent(window, false);
+        }
+        SetPreferredHeight(volume, 20);
+        StyleSlider(volume);
+
+        MoveTo(nowPlaying, window, 0);
+        MoveTo(controls, window, 1);
+        MoveTo(volumeLabel, window, 2);
+        MoveTo(volume, window, 3);
+
+        RectTransform toolbar = FindOrCreateToolbar(root);
+        Transform toggle = CreateButton(toolbar, "MusicButton", "Música");
+        StyleButton(toggle, ButtonNormal, ButtonHighlighted, 52, 22, "Música");
+        Transform before = toolbar.Find("RelatorioMesa");
+        if (before == null) before = toolbar.Find("LeaveRoom");
+        int index = toolbar.childCount - 1;
+        if (before != null)
+        {
+            index = before.GetSiblingIndex();
+            if (toggle.GetSiblingIndex() < index) index--;
+        }
+        MoveTo(toggle, toolbar, index);
+        WireClick(toggle, new UnityAction(musicPanel.TogglePanel));
+
+        SetReference(musicPanel, "music", sync);
+        SetReference(musicPanel, "player", player);
+        SetReference(musicPanel, "panel", window.gameObject);
+        SetReference(musicPanel, "nowPlayingText", nowPlaying.GetComponent<TMP_Text>());
+        SetReference(musicPanel, "modeLabel", mode.GetComponentInChildren<TMP_Text>(true));
+        SetReference(musicPanel, "volumeSlider", volume.GetComponent<Slider>());
+        AddMasterOnlyTarget(masterOnly, controls.gameObject);
+
+        Undo.CollapseUndoOperations(group);
+        EditorSceneManager.MarkSceneDirty(canvasObject.scene);
+        Debug.Log("UIStyleTool: painel de música montado.");
+    }
+
+    const string MusicLibraryPath = "Assets/__Project/Audio/MusicLibrary.asset";
+
+    static MusicLibrary FindOrCreateMusicLibrary()
+    {
+        var library = AssetDatabase.LoadAssetAtPath<MusicLibrary>(MusicLibraryPath);
+        if (library != null) return library;
+
+        if (!AssetDatabase.IsValidFolder("Assets/__Project/Audio"))
+            AssetDatabase.CreateFolder("Assets/__Project", "Audio");
+        library = ScriptableObject.CreateInstance<MusicLibrary>();
+        AssetDatabase.CreateAsset(library, MusicLibraryPath);
+        AssetDatabase.SaveAssets();
+        return library;
+    }
+
+    static void SetupMusicSource(AudioSource source)
+    {
+        Undo.RecordObject(source, "Fonte de música");
+        source.playOnAwake = false;
+        source.loop = false;
+        source.spatialBlend = 0f;
+        source.volume = 0f;
+    }
+
+    static void StyleSlider(Transform target)
+    {
+        var slider = target.GetComponent<Slider>();
+        Undo.RecordObject(slider, "Volume");
+        slider.minValue = 0f;
+        slider.maxValue = 1f;
+        slider.wholeNumbers = false;
+        TintImage(target.Find("Background"), InputColor);
+        TintImage(target.Find("Fill Area/Fill"), AccentNormal);
+        TintImage(target.Find("Handle Slide Area/Handle"), TextColor);
+    }
+
+    static void TintImage(Transform target, Color color)
+    {
+        if (target == null) return;
+        var image = target.GetComponent<Image>();
+        if (image == null) return;
+        Undo.RecordObject(image, "Cor");
+        image.color = color;
+    }
+
+    static void WireIntClick(Transform target, UnityAction<int> action, int value)
+    {
+        var click = target.GetComponent<Button>();
+        Undo.RecordObject(click, "Ação do botão");
+        while (click.onClick.GetPersistentEventCount() > 0)
+            UnityEventTools.RemovePersistentListener(click.onClick, 0);
+        UnityEventTools.AddIntPersistentListener(click.onClick, action, value);
+    }
+
     static void WireClick(Transform target, UnityAction action)
     {
         var click = target.GetComponent<Button>();
