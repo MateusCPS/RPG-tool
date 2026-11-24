@@ -69,4 +69,16 @@ public class CombatRulesTests
     {
         Assert.IsFalse(CombatRules.CanUndoMove(TableRole.Player, false));
     }
+
+    [Test]
+    public void RemainingMovement_PartlyMoved_ReturnsDifference()
+    {
+        Assert.AreEqual(4.5f, CombatRules.RemainingMovement(4.5f, Speed), 0.001f);
+    }
+
+    [Test]
+    public void RemainingMovement_MovedMoreThanSpeed_ReturnsZero()
+    {
+        Assert.AreEqual(0f, CombatRules.RemainingMovement(10.5f, Speed), 0.001f);
+    }
 }

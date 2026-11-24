@@ -60,6 +60,7 @@ public class TokenManager : MonoBehaviour, INetworkPrefabInstanceHandler
     public event Action PermissionsChanged;
     public event Action CombatChanged;
     public event Action<TokenView> TokenChanged;
+    public event Action<TokenView, MoveRejection> MoveRejected;
     public bool CanManageTokens => !IsClientOnly;
 
     static readonly Plane TablePlane = new Plane(Vector3.up, Vector3.zero);
@@ -403,6 +404,7 @@ public class TokenManager : MonoBehaviour, INetworkPrefabInstanceHandler
         token.Network.DragPreviewRequested -= OnDragPreviewRequested;
         token.Network.StateChanged -= OnTokenState;
         token.Network.UndoMoveRequested -= OnUndoMoveRequested;
+        token.Network.MoveRejected -= OnMoveRejected;
         if (selected == token) Select(null);
         if (dragged == token) dragged = null;
         if (lastMoved == token) lastMoved = null;
@@ -463,9 +465,15 @@ public class TokenManager : MonoBehaviour, INetworkPrefabInstanceHandler
         Vector3 snapped = rule.Snap(target, view.Data.size);
         float distance = rule.MeasureDistance(view.Data.Position, snapped);
 
-        if(!CanMove(sender, view.Data) || !CanTravel(sender, view.Data, distance))
+        if (!CanMove(sender, view.Data))
         {
-            net.RejectMove(sender);
+            net.RejectMove(sender, MoveRejection.NotAllowed);
+            return;
+        }
+
+        if (!CanTravel(sender, view.Data, distance))
+        {
+            net.RejectMove(sender, MoveRejection.NoMovementLeft);
             return;
         }
 
@@ -475,6 +483,8 @@ public class TokenManager : MonoBehaviour, INetworkPrefabInstanceHandler
         net.Publish(TokenState.From(view.Data));
         TokenChanged?.Invoke(view);
     }
+
+    void OnMoveRejected(NetworkToken net, MoveRejection reason) => MoveRejected?.Invoke(net.View, reason);
 
     public void UndoLastMove()
     {
@@ -551,6 +561,7 @@ public class TokenManager : MonoBehaviour, INetworkPrefabInstanceHandler
     {
         TokenView view = Instantiate(tokenPrefab, transform);
         view.Network.StateChanged += OnTokenState;
+        view.Network.MoveRejected += OnMoveRejected;
         return view.Network.NetworkObject;
     }
 

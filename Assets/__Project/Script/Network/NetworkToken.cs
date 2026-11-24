@@ -17,6 +17,7 @@ public class NetworkToken : NetworkBehaviour
     public event Action<NetworkToken, int, ulong> HpChangeRequested;
     public event Action<NetworkToken, Vector3, ulong> DragPreviewRequested;
     public event Action<NetworkToken, ulong> UndoMoveRequested;
+    public event Action<NetworkToken, MoveRejection> MoveRejected;
 
     public override void OnNetworkSpawn()
     {
@@ -52,15 +53,16 @@ public class NetworkToken : NetworkBehaviour
         MoveRequested?.Invoke(this, new Vector3(target.x, 0f, target.y), rpcParams.Receive.SenderClientId);
     }
 
-    public void RejectMove(ulong clientId)
+    public void RejectMove(ulong clientId, MoveRejection reason)
     {
-        MoveRejectedRpc(RpcTarget.Single(clientId, RpcTargetUse.Temp));
+        MoveRejectedRpc(reason, RpcTarget.Single(clientId, RpcTargetUse.Temp));
     }
 
     [Rpc(SendTo.SpecifiedInParams)]
-    void MoveRejectedRpc(RpcParams rpcParams)
+    void MoveRejectedRpc(MoveRejection reason, RpcParams rpcParams)
     {
         StateChanged?.Invoke(this);
+        MoveRejected?.Invoke(this, reason);
     }
 
     public void RequestUndoMove() => RequestUndoMoveRpc();
