@@ -1,3 +1,4 @@
+using System;
 public static class CombatRules
 {
     public const float Tolerance = 0.05f;
@@ -7,4 +8,7 @@ public static class CombatRules
 
     public static bool CanUndoMove(TableRole role, bool movedByRequester) =>
         role == TableRole.Master || movedByRequester;
+
+    public static float RemainingMovement(float movedThisRound, float speed) =>
+        Math.Max(0f, speed - movedThisRound);
 }
