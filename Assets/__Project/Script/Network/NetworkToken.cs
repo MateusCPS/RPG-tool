@@ -1,5 +1,4 @@
 using System;
-using Unity.Android.Gradle.Manifest;
 using Unity.Netcode;
 using UnityEngine;
 
@@ -13,7 +12,7 @@ public class NetworkToken : NetworkBehaviour
     public TokenView View => view;
     public TokenState State => state.Value;
 
-    public bool IsVisbleTo(ulong clientId)
+    public bool IsVisibleTo(ulong clientId)
     {
         TableRole role = clientId == NetworkManager.ServerClientId ? TableRole.Master : TableRole.Player;
         return PermissionRules.CanSeeToken(role, view.Data.hidden);
@@ -27,7 +26,7 @@ public class NetworkToken : NetworkBehaviour
         {
             if (clientId == NetworkManager.ServerClientId) continue;
 
-            bool shouldSee = IsVisbleTo(clientId);
+            bool shouldSee = IsVisibleTo(clientId);
             bool sees = NetworkObject.IsNetworkVisibleTo(clientId);
             if (shouldSee && !sees) NetworkObject.NetworkShow(clientId);
             else if (!shouldSee && sees) NetworkObject.NetworkHide(clientId);

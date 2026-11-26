@@ -449,7 +449,7 @@ public class TokenManager : MonoBehaviour, INetworkPrefabInstanceHandler
         view.Network.DragPreviewRequested += OnDragPreviewRequested;
         view.Network.UndoMoveRequested += OnUndoMoveRequested;
         view.Network.Publish(TokenState.From(view.Data));
-        view.Network.NetworkObject.CheckObjectVisibility = view.Network.IsVisbleTo;
+        view.Network.NetworkObject.CheckObjectVisibility = view.Network.IsVisibleTo;
         if (!view.Network.IsSpawned) view.Network.NetworkObject.Spawn();
     }
 
