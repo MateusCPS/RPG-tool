@@ -36,7 +36,7 @@ public class TokenStatusDisplay : MonoBehaviour
         float size = data.size * cellSize;
         float half = size / 2f;
 
-        nameLabel.text = data.displayName;
+        nameLabel.text = data.hidden ? $"{data.displayName} (escondido)" : data.displayName;
         nameLabel.transform.localPosition = new Vector3(0f, 0.02f, -(half + gap));
        
         float width = size * barWidth;

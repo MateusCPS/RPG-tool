@@ -10,6 +10,9 @@ public static class PermissionRules
     public static bool CanChangeTable(TableRole role) => role == TableRole.Master;
     public static bool CanSeeHiddenTokens(TableRole role) => role == TableRole.Master;
 
+    public static bool CanSeeToken(TableRole role, bool hidden) =>
+        !hidden || CanSeeHiddenTokens(role);
+
     static bool Owns(string requesterId, string ownerId) =>
         !string.IsNullOrEmpty(ownerId) && requesterId == ownerId;
 }
