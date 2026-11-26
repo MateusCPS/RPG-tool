@@ -256,6 +256,16 @@ public class TokenManager : MonoBehaviour, INetworkPrefabInstanceHandler
         TokenChanged?.Invoke(token);
     }
 
+    public void SetHidden(TokenView token, bool hidden)
+    {
+        if (token == null || !CanManageTokens || token.Data.hidden == hidden) return;
+
+        token.Data.hidden = hidden;
+        token.Refresh();
+        if (token.Network.IsSpawned) token.Network.ApplyVisibility();
+        TokenChanged?.Invoke(token);
+    }
+
     void ApplyHpChange(TokenView token, int delta)
     {
         TokenData data = token.Data;
@@ -439,6 +449,7 @@ public class TokenManager : MonoBehaviour, INetworkPrefabInstanceHandler
         view.Network.DragPreviewRequested += OnDragPreviewRequested;
         view.Network.UndoMoveRequested += OnUndoMoveRequested;
         view.Network.Publish(TokenState.From(view.Data));
+        view.Network.NetworkObject.CheckObjectVisibility = view.Network.IsVisibleTo;
         if (!view.Network.IsSpawned) view.Network.NetworkObject.Spawn();
     }
 
@@ -448,10 +459,12 @@ public class TokenManager : MonoBehaviour, INetworkPrefabInstanceHandler
     string PlayerIdOf(ulong clientId) =>
         roster.TryGetPlayerId(clientId, out string playerId) ? playerId : "";
     
-    bool CanMove(ulong clientId, TokenData data) => 
+    bool CanMove(ulong clientId, TokenData data) =>
+        PermissionRules.CanSeeToken(RoleOf(clientId), data.hidden) &&
         PermissionRules.CanMoveToken(RoleOf(clientId), PlayerIdOf(clientId), data.ownerId);
-    
+
     bool CanChangeHp(ulong clientId, TokenData data) =>
+        PermissionRules.CanSeeToken(RoleOf(clientId), data.hidden) &&
         PermissionRules.CanChangeHp(RoleOf(clientId), PlayerIdOf(clientId), data.ownerId);
 
     bool CanDragLocally(TokenData data) =>

@@ -12,6 +12,27 @@ public class NetworkToken : NetworkBehaviour
     public TokenView View => view;
     public TokenState State => state.Value;
 
+    public bool IsVisibleTo(ulong clientId)
+    {
+        TableRole role = clientId == NetworkManager.ServerClientId ? TableRole.Master : TableRole.Player;
+        return PermissionRules.CanSeeToken(role, view.Data.hidden);
+    }
+
+    public void ApplyVisibility()
+    {
+        if (!IsServer || !IsSpawned) return;
+
+        foreach(ulong clientId in NetworkManager.ConnectedClientsIds)
+        {
+            if (clientId == NetworkManager.ServerClientId) continue;
+
+            bool shouldSee = IsVisibleTo(clientId);
+            bool sees = NetworkObject.IsNetworkVisibleTo(clientId);
+            if (shouldSee && !sees) NetworkObject.NetworkShow(clientId);
+            else if (!shouldSee && sees) NetworkObject.NetworkHide(clientId);
+        }
+    }
+
     public event Action<NetworkToken> StateChanged;
     public event Action<NetworkToken, Vector3, ulong> MoveRequested;
     public event Action<NetworkToken, int, ulong> HpChangeRequested;
@@ -87,7 +108,10 @@ public class NetworkToken : NetworkBehaviour
     public void SendDragPreview(Vector3 point)
     {
         var flat = new Vector2(point.x, point.z);
-        if (IsServer) ShowDragRpc(flat);
+        if (IsServer)
+        {
+            if (!view.Data.hidden) ShowDragRpc(flat);
+        }
         else DragPreviewRpc(flat);
     }
 

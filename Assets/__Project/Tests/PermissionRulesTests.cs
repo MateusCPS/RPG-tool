@@ -76,4 +76,22 @@ public class PermissionRulesTests
     {
         Assert.IsFalse(PermissionRules.CanMoveToken(TableRole.Player, "", ""));
     }
+
+    [Test]
+    public void CanSeeToken_PlayerVisibleToken_ReturnsTrue()
+    {
+        Assert.IsTrue(PermissionRules.CanSeeToken(TableRole.Player, false));
+    }
+
+    [Test]
+    public void CanSeeToken_PlayerHiddenToken_ReturnsFalse()
+    {
+        Assert.IsFalse(PermissionRules.CanSeeToken(TableRole.Player, true));
+    }
+
+    [Test]
+    public void CanSeeToken_MasterHiddenToken_ReturnsTrue()
+    {
+        Assert.IsTrue(PermissionRules.CanSeeToken(TableRole.Master, true));
+    }
 }

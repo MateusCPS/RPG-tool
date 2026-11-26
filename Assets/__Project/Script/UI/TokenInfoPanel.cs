@@ -15,6 +15,8 @@ public class TokenInfoPanel : MonoBehaviour
     [SerializeField] TMP_Dropdown ownerDropdown;
     [SerializeField] TMP_InputField amountField;
     [SerializeField] GameObject[] hpControls;
+    [SerializeField] GameObject hideButton;
+    [SerializeField] TMP_Text hideButtonLabel;
 
     readonly List<string> ownerOptions = new List<string>();
     readonly List<string> optionLabels = new List<string>();
@@ -67,6 +69,8 @@ public class TokenInfoPanel : MonoBehaviour
 
         bool canAssign = tokens.CanManageTokens && roster.IsSpawned;
         ownerDropdown.gameObject.SetActive(canAssign);
+        hideButton.SetActive(tokens.CanManageTokens);
+        hideButtonLabel.text = data.hidden ? "Revelar aos jogadores" : "Esconder dos jogadores";
         if (canAssign) RefreshOwnerOption(data.ownerId);
     }
 
@@ -111,5 +115,12 @@ public class TokenInfoPanel : MonoBehaviour
 
         tokens.ChangeHp(token, amount * direction);
         amountField.text = "";
+    }
+
+    public void ToggleHidden()
+    {
+        TokenView token = tokens.Selected;
+        if (token == null) return;
+        tokens.SetHidden(token, !token.Data.hidden);
     }
 }
